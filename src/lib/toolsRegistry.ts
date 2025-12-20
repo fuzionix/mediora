@@ -1,4 +1,4 @@
-import { Film, Image, Music, Settings } from 'lucide-react'
+import { Film, Image, Music, ToolCase } from 'lucide-react'
 
 export interface Tool {
   id: string
@@ -12,7 +12,7 @@ export const TOOL_CATEGORIES = {
   video: { label: 'Video', icon: Film },
   image: { label: 'Image', icon: Image },
   audio: { label: 'Audio', icon: Music },
-  other: { label: 'Other', icon: Settings },
+  other: { label: 'Other', icon: ToolCase },
 }
 
 export const TOOLS: Tool[] = [

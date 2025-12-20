@@ -14,7 +14,8 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
-import { ChevronDown, Compass } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { ChevronDown, Compass, ShieldCheck } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { TOOL_CATEGORIES, getAllCategories, getToolsByCategory } from '@/lib/toolsRegistry'
 
@@ -27,6 +28,7 @@ export function AppSidebar() {
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-2">
           <img src="/src/assets/logo/Mediora.svg" alt="Mediora" className="h-8 w-24" />
+          <Badge variant={'outline'} className="rounded-full text-[0.625rem] text-slate-50 ml-auto bg-slate-900 shadow-none">v0.0.1</Badge>
         </div>
       </SidebarHeader>
 
@@ -85,7 +87,11 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="border-t">
+      <SidebarFooter className="flex flex-row items-center border-t">
+        <div className="flex items-center px-2 py-2">
+          <ShieldCheck className="h-4 w-4 text-green-600 flex-shrink-0" />
+        </div>
+        <div className="border-l h-8" />
         <div className="text-xs text-muted-foreground px-2 py-2">
           <p>All processing happens locally</p>
           <p>No data sent to servers</p>
