@@ -17,7 +17,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { ChevronDown, Compass, ShieldCheck } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
-import { TOOL_CATEGORIES, getAllCategories, getToolsByCategory } from '@/lib/toolsRegistry'
+import { TOOL_CATEGORIES, getAllCategories, getToolsByCategory, INFO_LINKS } from '@/lib/toolsRegistry'
 
 export function AppSidebar() {
   const location = useLocation()
@@ -33,6 +33,7 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        {/* Toolkit Group */}
         <SidebarGroup>
           <SidebarGroupLabel>Toolkit</SidebarGroupLabel>
           <SidebarGroupContent>
@@ -80,6 +81,28 @@ export function AppSidebar() {
                       </CollapsibleContent>
                     </SidebarMenuItem>
                   </Collapsible>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Info Links Group */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Resources</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {INFO_LINKS.map((link) => {
+                const Icon = link.icon
+                return (
+                  <SidebarMenuItem key={link.id}>
+                    <SidebarMenuButton asChild isActive={location.pathname === link.path} className='!font-normal'>
+                      <Link to={link.path}>
+                        <Icon className="h-4 w-4" />
+                        <span>{link.name}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
                 )
               })}
             </SidebarMenu>

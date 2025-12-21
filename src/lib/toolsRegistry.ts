@@ -1,4 +1,5 @@
-import { Film, Image, Music, ToolCase } from 'lucide-react'
+import { Film, Image, Music, ToolCase, Info, FileText, Scale } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 export interface Tool {
   id: string
@@ -6,6 +7,13 @@ export interface Tool {
   description: string
   path: string
   category: 'video' | 'image' | 'audio' | 'other'
+}
+
+export interface InfoLink {
+  id: string
+  name: string
+  path: string
+  icon: LucideIcon
 }
 
 export const TOOL_CATEGORIES = {
@@ -51,6 +59,27 @@ export const TOOLS: Tool[] = [
     path: '/tools/file-converter',
     category: 'other',
   }
+]
+
+export const INFO_LINKS: InfoLink[] = [
+  {
+    id: 'about',
+    name: 'About',
+    path: '/about',
+    icon: Info,
+  },
+  {
+    id: 'release-note',
+    name: 'Release Notes',
+    path: '/release-notes',
+    icon: FileText,
+  },
+  {
+    id: 'license',
+    name: 'License',
+    path: '/license',
+    icon: Scale,
+  },
 ]
 
 export const getToolsByCategory = (category: Tool['category']) => {

@@ -76,16 +76,6 @@ export default {
   				ring: 'hsl(var(--sidebar-ring))'
   			}
   		},
-  		backgroundColor: {
-  			primary: '#ffffff',
-  			secondary: '#f8f8f8',
-  			dark: '#000000'
-  		},
-  		textColor: {
-  			primary: '#000000',
-  			secondary: '#484848',
-  			light: '#ffffff'
-  		},
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
