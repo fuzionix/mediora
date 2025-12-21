@@ -78,8 +78,10 @@ export default function VideoToGifPage() {
                   onChange={handleVideoUpload}
                   className="hidden"
                 />
-                <div className="border border-dashed border-muted-foreground rounded-md px-4 py-8 md:py-12 text-center cursor-pointer hover:border-primary hover:bg-accent transition-colors">
-                  <Upload className="h-4 w-4 mx-auto text-muted-foreground mb-2" />
+                <div className="border border-dashed border-muted-foreground rounded-md px-4 py-6 md:py-10 text-center cursor-pointer hover:border-primary hover:bg-accent transition-colors">
+                  <div className="mx-auto mb-2 h-10 w-10 rounded-full border border-border flex items-center justify-center">
+                    <Upload className="h-4 w-4 text-muted-foreground" />
+                  </div>
                   <p className="text-sm font-medium">Click to upload video</p>
                   <p className="text-xs text-muted-foreground">or drag and drop</p>
                 </div>

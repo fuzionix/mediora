@@ -10,7 +10,7 @@ function App() {
     <BrowserRouter>
       <SidebarProvider>
         <AppSidebar />
-        <main className="w-full">
+        <main className="w-full bg-[#fbfbfb] min-h-screen">
           <div className="sticky flex items-center top-0 z-50 bg-white border-b">
             <SidebarTrigger className="m-2" />
             <div className="border-l h-4 mr-3" />
