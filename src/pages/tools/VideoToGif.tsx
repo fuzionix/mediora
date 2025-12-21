@@ -5,6 +5,7 @@ import { Card } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { GridBackground } from '@/components/layout/GridBackground'
 
 export default function VideoToGifPage() {
   const [videoFile, setVideoFile] = useState<File | null>(null)
@@ -46,145 +47,148 @@ export default function VideoToGifPage() {
   }
 
   return (
-    <div className="space-y-4 mt-4 md:mt-6 xl:mt-8 max-w-[960px] mx-auto">
-      {/* Header */}
-      <div>
-        <h1 className="text-4xl font-medium mb-1">Video to GIF</h1>
-        <p className="text-sm text-muted-foreground">Convert your videos to animated GIF format with custom settings</p>
-      </div>
-
-      <hr className="my-4" />
-
-      {/* Input Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Upload and Preview Panel */}
-        <div className="lg:col-span-1">
-          <Card>
-            {videoPreview ? (
-              <div className="space-y-4">
-                <div className="bg-black rounded-md overflow-hidden w-full aspect-video flex items-center justify-center">
-                  <video
-                    src={videoPreview}
-                    className="w-full h-full object-contain"
-                    controls
-                  />
-                </div>
-              </div>
-            ) : (
-              <label className="block">
-                <input
-                  type="file"
-                  accept="video/*"
-                  onChange={handleVideoUpload}
-                  className="hidden"
-                />
-                <div className="border border-dashed border-muted-foreground rounded-md px-4 py-6 md:py-10 text-center cursor-pointer hover:border-primary hover:bg-accent transition-colors">
-                  <div className="mx-auto mb-2 h-10 w-10 rounded-full border border-border flex items-center justify-center">
-                    <Upload className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm font-medium">Click to upload video</p>
-                  <p className="text-xs text-muted-foreground">or drag and drop</p>
-                </div>
-              </label>
-            )}
-          </Card>
-        </div>
-
-        {/* Control Panel */}
+    <>
+      <GridBackground />
+      <div className="space-y-4 mt-4 md:mt-6 xl:mt-8 max-w-[960px] mx-auto">
+        {/* Header */}
         <div>
-          <Card className="p-4 sticky top-20">
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                {/* Start Time */}
-                <div className="flex-1 space-y-1">
-                  <Label htmlFor="start-time">Start Time (sec)</Label>
-                  <Input
-                    id="start-time"
-                    type="number"
-                    min="0"
-                    value={startTime}
-                    onChange={(e) => setStartTime(parseFloat(e.target.value) || 0)}
+          <h1 className="text-4xl font-medium mb-1">Video to GIF</h1>
+          <p className="text-sm text-muted-foreground">Convert your videos to animated GIF format with custom settings</p>
+        </div>
+
+        <hr className="my-4" />
+
+        {/* Input Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Upload and Preview Panel */}
+          <div className="lg:col-span-1">
+            <Card>
+              {videoPreview ? (
+                <div className="space-y-4">
+                  <div className="bg-black rounded-md overflow-hidden w-full aspect-video flex items-center justify-center">
+                    <video
+                      src={videoPreview}
+                      className="w-full h-full object-contain"
+                      controls
+                    />
+                  </div>
+                </div>
+              ) : (
+                <label className="block">
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoUpload}
+                    className="hidden"
+                  />
+                  <div className="border border-dashed border-muted-foreground rounded-md px-4 py-6 md:py-10 text-center cursor-pointer hover:border-primary hover:bg-accent transition-colors">
+                    <div className="mx-auto mb-2 h-10 w-10 rounded-full border border-border flex items-center justify-center">
+                      <Upload className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium">Click to upload video</p>
+                    <p className="text-xs text-muted-foreground">or drag and drop</p>
+                  </div>
+                </label>
+              )}
+            </Card>
+          </div>
+
+          {/* Control Panel */}
+          <div>
+            <Card className="p-4 sticky top-20">
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  {/* Start Time */}
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor="start-time">Start Time (sec)</Label>
+                    <Input
+                      id="start-time"
+                      type="number"
+                      min="0"
+                      value={startTime}
+                      onChange={(e) => setStartTime(parseFloat(e.target.value) || 0)}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* End Time */}
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor="end-time">End Time (sec)</Label>
+                    <Input
+                      id="end-time"
+                      type="number"
+                      min={startTime}
+                      value={endTime}
+                      onChange={(e) => setEndTime(parseFloat(e.target.value) || 0)}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+
+                {/* FPS */}
+                <div className="space-y-1">
+                  <Label htmlFor="fps">Frames Per Second: {fps}</Label>
+                  <Slider
+                    id="fps"
+                    min={1}
+                    max={30}
+                    step={1}
+                    value={[fps]}
+                    onValueChange={(value) => setFps(value[0])}
                     className="w-full"
                   />
                 </div>
 
-                {/* End Time */}
-                <div className="flex-1 space-y-1">
-                  <Label htmlFor="end-time">End Time (sec)</Label>
-                  <Input
-                    id="end-time"
-                    type="number"
-                    min={startTime}
-                    value={endTime}
-                    onChange={(e) => setEndTime(parseFloat(e.target.value) || 0)}
-                    className="w-full"
-                  />
-                </div>
-              </div>
+                <div className="flex gap-2">
+                  {/* Width */}
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor="width">Width (px)</Label>
+                    <Input
+                      id="width"
+                      type="number"
+                      min="100"
+                      value={width}
+                      onChange={(e) => setWidth(parseInt(e.target.value) || 100)}
+                      className="w-full"
+                    />
+                  </div>
 
-              {/* FPS */}
-              <div className="space-y-1">
-                <Label htmlFor="fps">Frames Per Second: {fps}</Label>
-                <Slider
-                  id="fps"
-                  min={1}
-                  max={30}
-                  step={1}
-                  value={[fps]}
-                  onValueChange={(value) => setFps(value[0])}
-                  className="w-full"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                {/* Width */}
-                <div className="flex-1 space-y-1">
-                  <Label htmlFor="width">Width (px)</Label>
-                  <Input
-                    id="width"
-                    type="number"
-                    min="100"
-                    value={width}
-                    onChange={(e) => setWidth(parseInt(e.target.value) || 100)}
-                    className="w-full"
-                  />
+                  {/* Height */}
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor="height">Height (px)</Label>
+                    <Input
+                      id="height"
+                      type="number"
+                      min="100"
+                      value={height}
+                      onChange={(e) => setHeight(parseInt(e.target.value) || 100)}
+                      className="w-full"
+                    />
+                  </div>
                 </div>
 
-                {/* Height */}
-                <div className="flex-1 space-y-1">
-                  <Label htmlFor="height">Height (px)</Label>
-                  <Input
-                    id="height"
-                    type="number"
-                    min="100"
-                    value={height}
-                    onChange={(e) => setHeight(parseInt(e.target.value) || 100)}
+                {/* Action Buttons */}
+                <div className="pt-2 space-y-1">
+                  <Button
+                    onClick={handleConvert}
                     className="w-full"
-                  />
+                  >
+                    Convert to GIF
+                  </Button>
+                  <Button
+                    onClick={handleReset}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <RotateCcw className="h-4 w-4 mr-2" />
+                    Reset
+                  </Button>
                 </div>
               </div>
-
-              {/* Action Buttons */}
-              <div className="pt-2 space-y-1">
-                <Button
-                  onClick={handleConvert}
-                  className="w-full"
-                >
-                  Convert to GIF
-                </Button>
-                <Button
-                  onClick={handleReset}
-                  variant="outline"
-                  className="w-full"
-                >
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Reset
-                </Button>
-              </div>
-            </div>
-          </Card>
+            </Card>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

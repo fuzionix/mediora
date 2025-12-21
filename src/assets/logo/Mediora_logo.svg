@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_圖層_2" data-name="圖層 2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #131402;
+      }
+    </style>
+  </defs>
+  <g id="_圖層_1-2" data-name="圖層 1">
+    <polygon class="cls-1" points="0 600 0 600 0 0 200 0 0 600"/>
+    <polygon class="cls-1" points="300 600 0 600 300 0 600 0 300 600"/>
+    <polygon class="cls-1" points="600 600 400 600 600 0 600 0 600 600"/>
+  </g>
+</svg>
