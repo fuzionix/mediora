@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { Upload, RotateCcw } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { GridBackground } from '@/components/layout/GridBackground'
+import { VideoUploadPanel } from '@/components/tool/VideoUploadPanel'
 
 export default function VideoToGifPage() {
   const [videoFile, setVideoFile] = useState<File | null>(null)
@@ -62,35 +63,12 @@ export default function VideoToGifPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Upload and Preview Panel */}
           <div className="lg:col-span-1">
-            <Card>
-              {videoPreview ? (
-                <div className="space-y-4">
-                  <div className="bg-black rounded-md overflow-hidden w-full aspect-video flex items-center justify-center">
-                    <video
-                      src={videoPreview}
-                      className="w-full h-full object-contain"
-                      controls
-                    />
-                  </div>
-                </div>
-              ) : (
-                <label className="block">
-                  <input
-                    type="file"
-                    accept="video/*"
-                    onChange={handleVideoUpload}
-                    className="hidden"
-                  />
-                  <div className="border border-dashed border-muted-foreground rounded-md px-4 py-6 md:py-10 text-center cursor-pointer hover:border-primary hover:bg-accent transition-colors">
-                    <div className="mx-auto mb-2 h-10 w-10 rounded-full border border-border flex items-center justify-center">
-                      <Upload className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm font-medium">Click to upload video</p>
-                    <p className="text-xs text-muted-foreground">or drag and drop</p>
-                  </div>
-                </label>
-              )}
-            </Card>
+            <VideoUploadPanel
+              videoPreview={videoPreview}
+              onVideoUpload={handleVideoUpload}
+              videoFileName={videoFile?.name}
+              videoFileSize={videoFile?.size}
+            />
           </div>
 
           {/* Control Panel */}
