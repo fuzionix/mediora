@@ -6,11 +6,13 @@ import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { GridBackground } from '@/components/layout/GridBackground'
-import { VideoUploadPanel } from '@/components/tool/VideoUploadPanel'
+import { MediaUploadPanel } from '@/components/tool/MediaUploadPanel'
+import { MediaInfo } from '@/components/tool/MediaInfo'
 
 export default function VideoToGifPage() {
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [videoPreview, setVideoPreview] = useState<string | null>(null)
+  const [videoDuration, setVideoDuration] = useState<number | null>(null)
   const [startTime, setStartTime] = useState(0)
   const [endTime, setEndTime] = useState(10)
   const [fps, setFps] = useState(10)
@@ -24,6 +26,10 @@ export default function VideoToGifPage() {
       const preview = URL.createObjectURL(file)
       setVideoPreview(preview)
     }
+  }
+
+  const handleVideoLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    setVideoDuration(e.currentTarget.duration)
   }
 
   const handleReset = () => {
@@ -50,7 +56,7 @@ export default function VideoToGifPage() {
   return (
     <>
       <GridBackground />
-      <div className="space-y-4 mt-4 md:mt-6 xl:mt-8 max-w-[960px] mx-auto">
+      <div className="space-y-4 mt-4 md:mt-6 xl:mt-8 max-w-[1024px] mx-auto">
         {/* Header */}
         <div>
           <h1 className="text-4xl font-medium mb-1">Video to GIF</h1>
@@ -63,12 +69,30 @@ export default function VideoToGifPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Upload and Preview Panel */}
           <div className="lg:col-span-1">
-            <VideoUploadPanel
-              videoPreview={videoPreview}
-              onVideoUpload={handleVideoUpload}
-              videoFileName={videoFile?.name}
-              videoFileSize={videoFile?.size}
-            />
+            <MediaUploadPanel
+              isUploaded={!!videoPreview}
+              onUpload={handleVideoUpload}
+              accept="video/*"
+            >
+              {videoPreview && (
+                <div>
+                  <div className="bg-black w-full aspect-video flex items-center justify-center">
+                    <video
+                      src={videoPreview}
+                      className="w-full h-full object-contain"
+                      controls
+                      onLoadedMetadata={handleVideoLoadedMetadata}
+                    />
+                  </div>
+                  <hr className="mx-4 mt-4" />
+                  <MediaInfo
+                    fileName={videoFile?.name}
+                    fileSize={videoFile?.size}
+                    duration={videoDuration}
+                  />
+                </div>
+              )}
+            </MediaUploadPanel>
           </div>
 
           {/* Control Panel */}
