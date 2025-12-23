@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, Download, FileArchive, ArrowDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { GridBackground } from '@/components/layout/GridBackground'
 import { MediaUploadPanel } from '@/components/tool/MediaUploadPanel'
 import { MediaInfo } from '@/components/tool/MediaInfo'
+import { FeaturePanel } from '@/components/tool/FeaturePanel'
 
 export default function VideoToGifPage() {
   const [videoFile, setVideoFile] = useState<File | null>(null)
@@ -18,6 +19,8 @@ export default function VideoToGifPage() {
   const [fps, setFps] = useState(10)
   const [width, setWidth] = useState(480)
   const [height, setHeight] = useState(360)
+  const [outputGif, setOutputGif] = useState<string | null>(null)
+  const [isConverting, setIsConverting] = useState(false)
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -40,17 +43,47 @@ export default function VideoToGifPage() {
     setFps(10)
     setWidth(480)
     setHeight(360)
+    setOutputGif(null)
   }
 
-  const handleConvert = () => {
-    // Placeholder for conversion logic
-    console.log('Converting video to GIF with settings:', {
-      startTime,
-      endTime,
-      fps,
-      width,
-      height,
-    })
+  const handleConvert = async () => {
+    setIsConverting(true)
+    try {
+      // Placeholder for conversion logic
+      console.log('Converting video to GIF with settings:', {
+        startTime,
+        endTime,
+        fps,
+        width,
+        height,
+      })
+
+      // Simulate conversion by creating a placeholder output
+      // In real implementation, this would use ffmpeg.wasm
+      setTimeout(() => {
+        setOutputGif('data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7')
+        setIsConverting(false)
+      }, 2000)
+    } catch (error) {
+      console.error('Conversion failed:', error)
+      setIsConverting(false)
+    }
+  }
+
+  const handleDownloadGif = () => {
+    if (!outputGif) return
+
+    const link = document.createElement('a')
+    link.href = outputGif
+    link.download = `output.gif`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
+  const handleDownloadZip = () => {
+    // Placeholder for ZIP download logic
+    console.log('Downloading as ZIP...')
   }
 
   return (
@@ -60,7 +93,9 @@ export default function VideoToGifPage() {
         {/* Header */}
         <div>
           <h1 className="text-4xl font-medium mb-1">Video to GIF</h1>
-          <p className="text-sm text-muted-foreground">Convert your videos to animated GIF format with custom settings</p>
+          <p className="text-sm text-muted-foreground">
+            Convert your videos to animated GIF format with custom settings
+          </p>
         </div>
 
         <hr className="my-4" />
@@ -97,7 +132,7 @@ export default function VideoToGifPage() {
 
           {/* Control Panel */}
           <div>
-            <Card className="p-4 sticky top-20">
+            <Card className="p-4 top-20">
               <div className="space-y-4">
                 <div className="flex gap-2">
                   {/* Start Time */}
@@ -171,25 +206,75 @@ export default function VideoToGifPage() {
 
                 {/* Action Buttons */}
                 <div className="pt-2 space-y-1">
-                  <Button
-                    onClick={handleConvert}
-                    className="w-full"
-                  >
-                    Convert to GIF
+                  <Button onClick={handleConvert} className="w-full" disabled={isConverting}>
+                    {isConverting ? 'Converting...' : 'Convert to GIF'}
                   </Button>
-                  <Button
-                    onClick={handleReset}
-                    variant="outline"
-                    className="w-full"
-                  >
+                  <Button onClick={handleReset} variant="outline" className="w-full">
                     <RotateCcw className="h-4 w-4 mr-2" />
                     Reset
                   </Button>
                 </div>
               </div>
             </Card>
+
+            {/* Features Section */}
+            <FeaturePanel />
           </div>
         </div>
+
+        <div className="flex justify-center items-center h-16">
+          <ArrowDown className="h-5 w-5 opacity-80" />
+        </div>
+
+        {/* Output Section */}
+        {outputGif && (
+          <>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Output Result Panel */}
+              <div className="lg:col-span-1 relative">
+                <Card className="overflow-hidden">
+                  <div>
+                    {/* GIF Preview */}
+                    <div className="bg-black w-full aspect-video flex items-center justify-center rounded-t-lg overflow-hidden">
+                      <img src={outputGif} alt="Generated GIF" className="w-full h-full object-contain" />
+                    </div>
+
+                    <hr className="mx-4 mt-4" />
+
+                    {/* Download Buttons */}
+                    <div className="flex flex-col md:flex-row lg:flex-col xl:flex-row gap-2 p-4 text-xs">
+                      <Button onClick={handleDownloadGif} className="w-full">
+                        <Download className="h-4 w-4 mr-2" />
+                        Download as GIF
+                      </Button>
+                      <Button onClick={handleDownloadZip} variant="outline" className="w-full">
+                        <FileArchive className="h-4 w-4 mr-2" />
+                        Download as ZIP
+                      </Button>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Additional Tools Panel */}
+              <div>
+                <Card className="p-4 top-20">
+                  <div>
+                    <h2 className="text-lg font-medium">Further Adjustments</h2>
+                    <p className="mt-0 text-xs text-muted-foreground">
+                      Enhance your GIF with additional tools (coming soon)
+                    </p> 
+
+                    {/* Placeholder Buttons */}
+                    <div className="mt-4 space-y-2">
+                      
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </>
   )
