@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { RotateCcw, Download, FileArchive, ArrowDown } from 'lucide-react'
+import { RotateCcw, Download, FileArchive, ArrowDown, CircleDashed } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
@@ -227,7 +227,7 @@ export default function VideoToGifPage() {
         </div>
 
         {/* Output Section */}
-        {outputGif && (
+        {outputGif ? (
           <>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Output Result Panel */}
@@ -274,6 +274,22 @@ export default function VideoToGifPage() {
               </div>
             </div>
           </>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="lg:col-span-2">
+              <Card className="p-8">
+                <div className="flex flex-col items-center justify-center text-center">
+                  <div className="mx-auto mb-2 h-10 w-10 rounded-full border border-border flex items-center justify-center">
+                    <CircleDashed className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <p className="text-sm font-medium">No output yet</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Upload a video and click "Convert to GIF" to see your result here
+                  </p>
+                </div>
+              </Card>
+            </div>
+          </div>
         )}
       </div>
     </>
