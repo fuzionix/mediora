@@ -71,7 +71,7 @@ export function MediaUploadPanel({
             <div className="mx-auto mb-2 h-10 w-10 rounded-full border border-border flex items-center justify-center">
               <Upload className="h-4 w-4 text-muted-foreground" />
             </div>
-            <p className="text-sm font-medium">Click to upload</p>
+            <p className="text-sm font-medium">Click to upload {accept.split("/")[0]}</p>
             <p className="text-xs text-muted-foreground">or drag and drop</p>
           </div>
         </label>

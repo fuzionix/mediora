@@ -1,64 +1,66 @@
-import { Film, Image, Music, ToolCase, Info, FileText, Scale } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { Film, Zap, Music, Image, Info, FileText, Scale } from 'lucide-react'
+import type { Tool, ToolCategory, InfoLink } from './types'
 
-export interface Tool {
-  id: string
-  name: string
-  description: string
-  path: string
-  category: 'video' | 'image' | 'audio' | 'other'
-}
-
-export interface InfoLink {
-  id: string
-  name: string
-  path: string
-  icon: LucideIcon
-}
-
-export const TOOL_CATEGORIES = {
-  video: { label: 'Video', icon: Film },
-  image: { label: 'Image', icon: Image },
-  audio: { label: 'Audio', icon: Music },
-  other: { label: 'Other', icon: ToolCase },
+export const TOOL_CATEGORIES: Record<string, ToolCategory> = {
+  video: {
+    id: 'video',
+    label: 'Video Tools',
+    icon: Film,
+  },
+  audio: {
+    id: 'audio',
+    label: 'Audio Tools',
+    icon: Music,
+  },
+  image: {
+    id: 'image',
+    label: 'Image Tools',
+    icon: Image,
+  },
+  other: {
+    id: 'other',
+    label: 'Other Tools',
+    icon: Zap,
+  }
 }
 
 export const TOOLS: Tool[] = [
   {
     id: 'video-to-gif',
     name: 'Video to GIF',
-    description: 'Convert videos to GIF format',
-    path: '/tools/video-to-gif',
+    description: 'Convert your videos to animated GIF format with custom settings',
     category: 'video',
+    path: '/tools/video-to-gif',
   },
   {
     id: 'video-compressor',
     name: 'Video Compressor',
-    description: 'Compress video files',
-    path: '/tools/video-compressor',
-    category: 'video',
-  },
-  {
-    id: 'image-resizer',
-    name: 'Image Resizer',
-    description: 'Resize image files',
-    path: '/tools/image-resizer',
-    category: 'image',
-  },
-  {
-    id: 'audio-trimmer',
-    name: 'Audio Trimmer',
-    description: 'Trim audio files',
-    path: '/tools/audio-trimmer',
-    category: 'audio',
-  },
-  {
-    id: 'file-converter',
-    name: 'File Converter',
-    description: 'Convert files between different formats',
-    path: '/tools/file-converter',
+    description: 'Reduce video file size while maintaining quality',
     category: 'other',
-  }
+    path: '/tools/video-compressor',
+  },
+  {
+    id: 'video-trimmer',
+    name: 'Video Trimmer',
+    description: 'Trim and cut videos to desired length',
+    category: 'video',
+    path: '/tools/video-trimmer',
+  },
+  {
+    id: 'audio-extractor',
+    name: 'Audio Extractor',
+    description: 'Extract audio from video files',
+    category: 'audio',
+    path: '/tools/audio-extractor',
+  },
+  {
+    id: 'image-converter',
+    name: 'Image Converter',
+    description: 'Convert between different image formats',
+    category: 'image',
+    path: '/tools/image-converter',
+    isComingSoon: true,
+  },
 ]
 
 export const INFO_LINKS: InfoLink[] = [
@@ -82,11 +84,10 @@ export const INFO_LINKS: InfoLink[] = [
   },
 ]
 
-export const getToolsByCategory = (category: Tool['category']) => {
-  return TOOLS.filter((tool) => tool.category === category)
+export function getAllCategories(): string[] {
+  return Array.from(new Set(TOOLS.map((tool) => tool.category)))
 }
 
-export const getAllCategories = () => {
-  const categories = new Set(TOOLS.map((tool) => tool.category))
-  return Array.from(categories) as Tool['category'][]
+export function getToolsByCategory(category: string): Tool[] {
+  return TOOLS.filter((tool) => tool.category === category)
 }
