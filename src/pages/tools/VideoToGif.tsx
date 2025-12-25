@@ -7,7 +7,9 @@ import {
   CircleDashed, 
   Loader2, 
   ArrowRightToLine,
-  RulerDimensionLine
+  RulerDimensionLine,
+  ChevronDown,
+  Check
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -15,12 +17,54 @@ import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { GridBackground } from '@/components/layout/GridBackground'
 import { MediaUploadPanel } from '@/components/tool/MediaUploadPanel'
 import { MediaInfo } from '@/components/tool/MediaInfo'
 import { FeaturePanel } from '@/components/tool/FeaturePanel'
 import { useFFmpeg } from '@/hooks/use-ffmpeg'
 import { downloadAsGif, downloadAsZip } from '@/lib/utils'
+
+type AspectRatio = 'original' | 'custom' | '16:9' | '4:3' | '1:1' | '9:16' | '21:9'
+type FitMode = 'fit' | 'fill' | 'stretch' | 'pad'
+
+const ASPECT_RATIOS: { label: string; value: AspectRatio; ratio?: number }[] = [
+  { label: 'Original', value: 'original' },
+  { label: 'Custom', value: 'custom' },
+  { label: '16:9', value: '16:9', ratio: 16 / 9 },
+  { label: '4:3', value: '4:3', ratio: 4 / 3 },
+  { label: '1:1', value: '1:1', ratio: 1 },
+  { label: '9:16', value: '9:16', ratio: 9 / 16 },
+  { label: '21:9', value: '21:9', ratio: 21 / 9 },
+]
+
+const FIT_MODES: { label: string; value: FitMode; description: string }[] = [
+  { 
+    label: 'Fit', 
+    value: 'fit', 
+    description: 'Shrinks video to fit inside dimensions, but keeps original size if smaller.' 
+  },
+  { 
+    label: 'Fill', 
+    value: 'fill', 
+    description: 'Zooms to fill the entire area, cropping edges to maintain aspect ratio.' 
+  },
+  { 
+    label: 'Stretch', 
+    value: 'stretch', 
+    description: 'Forces exact width and height, which may squash or stretch the image.' 
+  },
+  { 
+    label: 'Padded', 
+    value: 'pad', 
+    description: 'Fits entire video inside dimensions, adding black bars to fill empty space.' 
+  },
+]
 
 export default function VideoToGifPage() {
   const { state: ffmpegState, load: loadFFmpeg, writeFile, readFile, exec, deleteFile } = useFFmpeg()
@@ -37,8 +81,11 @@ export default function VideoToGifPage() {
   const [originalHeight, setOriginalHeight] = useState<number | null>(null)
   
   const [width, setWidth] = useState(480)
-  const [height, setHeight] = useState<number | null>(null)
+  const [height, setHeight] = useState(270)
   
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('original')
+  const [fitMode, setFitMode] = useState<FitMode>('fit')
+
   const [outputGif, setOutputGif] = useState<string | null>(null)
   const [outputBlob, setOutputBlob] = useState<Blob | null>(null)
   const [isConverting, setIsConverting] = useState(false)
@@ -47,14 +94,35 @@ export default function VideoToGifPage() {
     loadFFmpeg()
   }, [loadFFmpeg])
 
-  // Calculate aspect ratio and update height when width changes
-  useEffect(() => {
-    if (originalWidth && originalHeight && width) {
-      const aspectRatio = originalHeight / originalWidth
-      const newHeight = Math.round(width * aspectRatio)
-      setHeight(newHeight)
+  // Update height when width changes if AR is locked
+  const updateHeightFromWidth = (w: number, ar: AspectRatio) => {
+    let ratio = 0
+    if (ar === 'original' && originalWidth && originalHeight) {
+      ratio = originalWidth / originalHeight
+    } else {
+      const preset = ASPECT_RATIOS.find(r => r.value === ar)
+      if (preset?.ratio) ratio = preset.ratio
     }
-  }, [width, originalWidth, originalHeight])
+
+    if (ratio > 0) {
+      setHeight(Math.round(w / ratio))
+    }
+  }
+
+  // Update width when height changes if AR is locked
+  const updateWidthFromHeight = (h: number, ar: AspectRatio) => {
+    let ratio = 0
+    if (ar === 'original' && originalWidth && originalHeight) {
+      ratio = originalWidth / originalHeight
+    } else {
+      const preset = ASPECT_RATIOS.find(r => r.value === ar)
+      if (preset?.ratio) ratio = preset.ratio
+    }
+
+    if (ratio > 0) {
+      setWidth(Math.round(h * ratio))
+    }
+  }
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -78,8 +146,8 @@ export default function VideoToGifPage() {
     setOriginalHeight(vidHeight)
     
     setWidth(vidWidth)
-    const aspectRatio = vidHeight / vidWidth
-    setHeight(Math.round(vidWidth * aspectRatio))
+    setHeight(vidHeight)
+    setAspectRatio('original')
   }
 
   const handleReset = () => {
@@ -93,7 +161,9 @@ export default function VideoToGifPage() {
     setOriginalWidth(null)
     setOriginalHeight(null)
     setWidth(480)
-    setHeight(null)
+    setHeight(270)
+    setAspectRatio('original')
+    setFitMode('fit')
   }
 
   const handleResetEndTime = () => {
@@ -106,11 +176,29 @@ export default function VideoToGifPage() {
     if (originalWidth && originalHeight) {
       setWidth(originalWidth)
       setHeight(originalHeight)
+      setAspectRatio('original')
     }
   }
 
   const handleWidthChange = (newWidth: number) => {
     setWidth(newWidth)
+    if (aspectRatio !== 'custom') {
+      updateHeightFromWidth(newWidth, aspectRatio)
+    }
+  }
+
+  const handleHeightChange = (newHeight: number) => {
+    setHeight(newHeight)
+    if (aspectRatio !== 'custom') {
+      updateWidthFromHeight(newHeight, aspectRatio)
+    }
+  }
+
+  const handleAspectRatioChange = (ar: AspectRatio) => {
+    setAspectRatio(ar)
+    if (ar !== 'custom') {
+      updateHeightFromWidth(width, ar)
+    }
   }
 
   const handleConvert = async () => {
@@ -122,44 +210,72 @@ export default function VideoToGifPage() {
       const outputName = 'output.gif'
       const paletteName = 'palette.png'
 
-      // Step 1: Write file to memory
       await writeFile(inputName, videoFile)
 
-      // Step 2: Calculate duration
       const duration = endTime - startTime
       if (duration <= 0) throw new Error("End time must be greater than start time")
 
-      // Step 3: Generate Palette (Pass 1)
-      // This creates a custom color palette for the specific video segment for better quality
-      const filters = `fps=${fps},scale=${width}:-1:flags=lanczos`
+      // Construct Filter String
+      let filterString = `fps=${fps}`
       
-      // Command: Generate palette
+      // Calculate final dimensions or filter logic based on Fit Mode
+      if (fitMode === 'fit') {
+        if (originalWidth && originalHeight) {
+          const scaleX = width / originalWidth
+          const scaleY = height / originalHeight
+          const scaleFactor = Math.min(scaleX, scaleY)
+          
+          const finalScale = scaleFactor > 1 ? 1 : scaleFactor
+          
+          let finalW = Math.round(originalWidth * finalScale)
+          let finalH = Math.round(originalHeight * finalScale)
+          
+          // Ensure even dimensions
+          if (finalW % 2 !== 0) finalW -= 1
+          if (finalH % 2 !== 0) finalH -= 1
+          
+          // Prevent 0 dimensions
+          finalW = Math.max(2, finalW)
+          finalH = Math.max(2, finalH)
+
+          filterString += `,scale=${finalW}:${finalH}:flags=lanczos`
+        } else {
+          // Fallback if metadata missing (shouldn't happen)
+          filterString += `,scale=${width}:-1:flags=lanczos`
+        }
+      } else if (fitMode === 'fill') {
+         filterString += `,scale=${width}:${height}:force_original_aspect_ratio=increase:flags=lanczos,crop=${width}:${height}`
+      } else if (fitMode === 'stretch') {
+         filterString += `,scale=${width}:${height}:flags=lanczos`
+      } else if (fitMode === 'pad') {
+         filterString += `,scale=${width}:${height}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`
+      }
+
+      // Pass 1: Palette Generation
       await exec([
         '-ss', startTime.toString(),
         '-t', duration.toString(),
         '-i', inputName,
-        '-vf', `${filters},palettegen`,
+        '-vf', `${filterString},palettegen`,
         '-y', paletteName
       ])
 
-      // Step 4: Generate GIF using palette (Pass 2)
+      // Pass 2: Palette Use and GIF Creation
       await exec([
         '-ss', startTime.toString(),
         '-t', duration.toString(),
         '-i', inputName,
         '-i', paletteName,
-        '-lavfi', `${filters} [x]; [x][1:v] paletteuse`,
+        '-lavfi', `${filterString} [x]; [x][1:v] paletteuse`,
         '-y', outputName
       ])
 
-      // Step 5: Read result
       const blob = await readFile(outputName)
       const url = URL.createObjectURL(blob)
       
       setOutputBlob(blob)
       setOutputGif(url)
 
-      // Step 6: Cleanup
       await deleteFile(inputName)
       await deleteFile(outputName)
       await deleteFile(paletteName)
@@ -235,6 +351,7 @@ export default function VideoToGifPage() {
           <div>
             <Card className="p-4 top-20">
               <div className="space-y-4">
+                {/* Time Settings */}
                 <div className="flex gap-2">
                   {/* Start Time */}
                   <div className="flex-1 space-y-1">
@@ -334,9 +451,15 @@ export default function VideoToGifPage() {
                   <div className="flex-1 space-y-1">
                     <Label htmlFor="height">Height (px)</Label>
                     <div className="relative">
-                      <div className="h-9 px-3 py-2 border rounded-md bg-muted text-muted-foreground text-sm flex items-center">
-                        {height ?? 'Auto'}
-                      </div>
+                      <Input
+                        id="height"
+                        type="number"
+                        min="100"
+                        value={height}
+                        onChange={(e) => handleHeightChange(parseInt(e.target.value) || 270)}
+                        className="w-full pr-10"
+                        disabled={aspectRatio !== 'custom'}
+                      />
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
@@ -353,6 +476,61 @@ export default function VideoToGifPage() {
                         </TooltipContent>
                       </Tooltip>
                     </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  {/* Aspect Ratio */}
+                  <div className="space-y-1">
+                    <Label>Aspect Ratio</Label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between px-3 font-normal">
+                          {ASPECT_RATIOS.find(a => a.value === aspectRatio)?.label}
+                          <ChevronDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {ASPECT_RATIOS.map((ar) => (
+                          <DropdownMenuItem 
+                            key={ar.value} 
+                            onClick={() => handleAspectRatioChange(ar.value)}
+                            className="justify-between"
+                          >
+                            {ar.label}
+                            {aspectRatio === ar.value && <Check className="h-4 w-4" />}
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  {/* Fit Mode */}
+                  <div className="space-y-1">
+                    <Label>Fit Mode</Label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between px-3 font-normal">
+                          {FIT_MODES.find(f => f.value === fitMode)?.label}
+                          <ChevronDown className="h-4 w-4 opacity-50" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        {FIT_MODES.map((fm) => (
+                          <DropdownMenuItem 
+                            key={fm.value} 
+                            onClick={() => setFitMode(fm.value)}
+                            className="flex-col items-start gap-1 max-w-[240px]"
+                          >
+                            <div className="flex items-center justify-between w-full">
+                              <span>{fm.label}</span>
+                              {fitMode === fm.value && <Check className="h-4 w-4" />}
+                            </div>
+                            <span className="text-xs text-muted-foreground">{fm.description}</span>
+                          </DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
 
@@ -376,7 +554,7 @@ export default function VideoToGifPage() {
                   {isConverting && (
                     <div className="space-y-1">
                        <p className="text-xs text-muted-foreground text-center">{ffmpegState.message}</p>
-                       {/* Progress bar representation */}
+                       {/* Progress Bar Representation */}
                        <div className="h-1 w-full bg-secondary rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-primary transition-all duration-300" 
