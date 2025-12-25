@@ -1,16 +1,26 @@
 import { useState, useEffect } from 'react'
-import { RotateCcw, Download, FileArchive, ArrowDown, CircleDashed, Loader2 } from 'lucide-react'
-import { zip } from 'fflate'
+import { 
+  RotateCcw, 
+  Download, 
+  FileArchive, 
+  ArrowDown, 
+  CircleDashed, 
+  Loader2, 
+  ArrowRightToLine,
+  RulerDimensionLine
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { GridBackground } from '@/components/layout/GridBackground'
 import { MediaUploadPanel } from '@/components/tool/MediaUploadPanel'
 import { MediaInfo } from '@/components/tool/MediaInfo'
 import { FeaturePanel } from '@/components/tool/FeaturePanel'
 import { useFFmpeg } from '@/hooks/use-ffmpeg'
+import { downloadAsGif, downloadAsZip } from '@/lib/utils'
 
 export default function VideoToGifPage() {
   const { state: ffmpegState, load: loadFFmpeg, writeFile, readFile, exec, deleteFile } = useFFmpeg()
@@ -23,6 +33,7 @@ export default function VideoToGifPage() {
   const [endTime, setEndTime] = useState(5)
   const [fps, setFps] = useState(15)
   const [width, setWidth] = useState(480)
+  const [height, setHeight] = useState<number | null>(null)
   
   const [outputGif, setOutputGif] = useState<string | null>(null)
   const [outputBlob, setOutputBlob] = useState<Blob | null>(null)
@@ -46,8 +57,9 @@ export default function VideoToGifPage() {
   const handleVideoLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
     const vid = e.currentTarget
     setVideoDuration(vid.duration)
-    setEndTime(Math.min(vid.duration, 5))
-    setWidth(vid.videoWidth > 480 ? 480 : vid.videoWidth)
+    setEndTime(Math.round(vid.duration * 10) / 10)
+    setWidth(vid.videoWidth)
+    setHeight(vid.videoHeight)
   }
 
   const handleReset = () => {
@@ -58,6 +70,12 @@ export default function VideoToGifPage() {
     setFps(15)
     setOutputGif(null)
     setOutputBlob(null)
+  }
+
+  const handleResetEndTime = () => {
+    if (videoDuration !== null) {
+      setEndTime(Math.round(videoDuration * 10) / 10)
+    }
   }
 
   const handleConvert = async () => {
@@ -119,41 +137,11 @@ export default function VideoToGifPage() {
   }
 
   const handleDownloadGif = () => {
-    if (!outputGif) return
-    const link = document.createElement('a')
-    link.href = outputGif
-    link.download = `mediora_${Date.now()}.gif`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    downloadAsGif(outputGif)
   }
 
-  /* eslint-disable  @typescript-eslint/no-explicit-any */
   const handleDownloadAsZip = async () => {
-    if (!outputBlob) return
-    
-    try {
-      const files: Record<string, Uint8Array> = {
-        [`mediora_${Date.now()}.gif`]: new Uint8Array(await outputBlob.arrayBuffer())
-      }
-
-      zip(files, (err, data) => {
-        if (err) {
-          console.error('ZIP creation failed:', err)
-          return
-        }
-
-        const zipBlob = new Blob([data as any], { type: 'application/zip' })
-        const link = document.createElement('a')
-        link.href = URL.createObjectURL(zipBlob)
-        link.download = `mediora_${Date.now()}.zip`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-      })
-    } catch (error) {
-      console.error('Error downloading as ZIP:', error)
-    }
+    downloadAsZip(outputBlob)
   }
 
   return (
@@ -230,15 +218,32 @@ export default function VideoToGifPage() {
                   {/* End Time */}
                   <div className="flex-1 space-y-1">
                     <Label htmlFor="end-time">End Time (sec)</Label>
-                    <Input
-                      id="end-time"
-                      type="number"
-                      min={startTime}
-                      step="0.1"
-                      value={endTime}
-                      onChange={(e) => setEndTime(parseFloat(e.target.value) || 0)}
-                      className="w-full"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="end-time"
+                        type="number"
+                        min={startTime}
+                        step="0.1"
+                        value={endTime}
+                        onChange={(e) => setEndTime(parseFloat(e.target.value) || 0)}
+                        className="w-full pr-10"
+                      />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={handleResetEndTime}
+                            disabled={videoDuration === null}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-secondary rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            aria-label="Reset to video duration"
+                          >
+                            <ArrowRightToLine className="h-4 w-4 text-foreground" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          Reset to video duration
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                   </div>
                 </div>
 
@@ -263,21 +268,55 @@ export default function VideoToGifPage() {
                   {/* Width */}
                   <div className="flex-1 space-y-1">
                     <Label htmlFor="width">Width (px)</Label>
-                    <Input
-                      id="width"
-                      type="number"
-                      min="100"
-                      value={width}
-                      onChange={(e) => setWidth(parseInt(e.target.value) || 100)}
-                      className="w-full"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="width"
+                        type="number"
+                        min="100"
+                        value={width}
+                        onChange={(e) => setWidth(parseInt(e.target.value) || 100)}
+                        className="w-full pr-10"
+                      />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => setWidth(width)}
+                            disabled={videoFile === null}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-secondary rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            aria-label="Reset to original width"
+                          >
+                            <RulerDimensionLine className="h-4 w-4 text-foreground" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          Reset to original width
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                   </div>
 
                   {/* Height (Auto-calculated usually, but manual here) */}
                   <div className="flex-1 space-y-1">
                     <Label htmlFor="height">Height (px)</Label>
-                    <div className="h-9 px-3 py-2 border rounded-md bg-muted text-muted-foreground text-sm flex items-center">
-                      Auto
+                    <div className="relative">
+                      <div className="h-9 px-3 py-2 border rounded-md bg-muted text-muted-foreground text-sm flex items-center">
+                        {height ?? 'Auto'}
+                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={() => setHeight(height)}
+                            disabled={videoFile === null}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-secondary rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            aria-label="Reset to original width"
+                          >
+                            <RulerDimensionLine className="h-4 w-4 text-foreground rotate-90" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">
+                          Reset to original height
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
                   </div>
                 </div>
@@ -346,7 +385,7 @@ export default function VideoToGifPage() {
                   <div className="flex flex-col md:flex-row lg:flex-col xl:flex-row gap-2 p-4 text-xs">
                     <Button onClick={handleDownloadGif} className="w-full">
                       <Download className="h-4 w-4 mr-2" />
-                      Download GIF ({outputBlob ? (outputBlob.size / 1024 / 1024).toFixed(2) : 0} MB)
+                      Download GIF <span className='text-xs opacity-80'>({outputBlob ? (outputBlob.size / 1024 / 1024).toFixed(2) : 0} MB)</span>
                     </Button>
                     <Button onClick={handleDownloadAsZip} variant="outline" className="w-full">
                       <FileArchive className="h-4 w-4 mr-2" />
