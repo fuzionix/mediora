@@ -32,6 +32,10 @@ export default function VideoToGifPage() {
   const [startTime, setStartTime] = useState(0)
   const [endTime, setEndTime] = useState(5)
   const [fps, setFps] = useState(15)
+  
+  const [originalWidth, setOriginalWidth] = useState<number | null>(null)
+  const [originalHeight, setOriginalHeight] = useState<number | null>(null)
+  
   const [width, setWidth] = useState(480)
   const [height, setHeight] = useState<number | null>(null)
   
@@ -42,6 +46,15 @@ export default function VideoToGifPage() {
   useEffect(() => {
     loadFFmpeg()
   }, [loadFFmpeg])
+
+  // Calculate aspect ratio and update height when width changes
+  useEffect(() => {
+    if (originalWidth && originalHeight && width) {
+      const aspectRatio = originalHeight / originalWidth
+      const newHeight = Math.round(width * aspectRatio)
+      setHeight(newHeight)
+    }
+  }, [width, originalWidth, originalHeight])
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -58,8 +71,15 @@ export default function VideoToGifPage() {
     const vid = e.currentTarget
     setVideoDuration(vid.duration)
     setEndTime(Math.round(vid.duration * 10) / 10)
-    setWidth(vid.videoWidth)
-    setHeight(vid.videoHeight)
+    
+    const vidWidth = vid.videoWidth
+    const vidHeight = vid.videoHeight
+    setOriginalWidth(vidWidth)
+    setOriginalHeight(vidHeight)
+    
+    setWidth(vidWidth)
+    const aspectRatio = vidHeight / vidWidth
+    setHeight(Math.round(vidWidth * aspectRatio))
   }
 
   const handleReset = () => {
@@ -70,12 +90,27 @@ export default function VideoToGifPage() {
     setFps(15)
     setOutputGif(null)
     setOutputBlob(null)
+    setOriginalWidth(null)
+    setOriginalHeight(null)
+    setWidth(480)
+    setHeight(null)
   }
 
   const handleResetEndTime = () => {
     if (videoDuration !== null) {
       setEndTime(Math.round(videoDuration * 10) / 10)
     }
+  }
+
+  const handleResetDimensions = () => {
+    if (originalWidth && originalHeight) {
+      setWidth(originalWidth)
+      setHeight(originalHeight)
+    }
+  }
+
+  const handleWidthChange = (newWidth: number) => {
+    setWidth(newWidth)
   }
 
   const handleConvert = async () => {
@@ -141,13 +176,13 @@ export default function VideoToGifPage() {
   }
 
   const handleDownloadAsZip = async () => {
-    downloadAsZip(outputBlob)
+    await downloadAsZip(outputBlob)
   }
 
   return (
     <>
       <GridBackground />
-      <div className="space-y-4 mt-4 md:mt-6 xl:mt-8 max-w-[1024px] mx-auto">
+      <div className="space-y-4 mt-4 md:mt-6 xl:mt-8 max-w-4xl mx-auto">
         {/* Header */}
         <div>
           <h1 className="text-4xl font-medium mb-1">Video to GIF</h1>
@@ -177,7 +212,7 @@ export default function VideoToGifPage() {
             >
               {videoPreview && (
                 <div>
-                  <div className="bg-black w-full aspect-video flex items-center justify-center">
+                  <div className="bg-black w-full flex items-center justify-center">
                     <video
                       src={videoPreview}
                       className="w-full h-full object-contain"
@@ -274,28 +309,28 @@ export default function VideoToGifPage() {
                         type="number"
                         min="100"
                         value={width}
-                        onChange={(e) => setWidth(parseInt(e.target.value) || 100)}
+                        onChange={(e) => handleWidthChange(parseInt(e.target.value) || 480)}
                         className="w-full pr-10"
                       />
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
-                            onClick={() => setWidth(width)}
-                            disabled={videoFile === null}
+                            onClick={handleResetDimensions}
+                            disabled={originalWidth === null}
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-secondary rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            aria-label="Reset to original width"
+                            aria-label="Reset to original dimensions"
                           >
                             <RulerDimensionLine className="h-4 w-4 text-foreground" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-xs">
-                          Reset to original width
+                          Reset to original dimensions
                         </TooltipContent>
                       </Tooltip>
                     </div>
                   </div>
 
-                  {/* Height (Auto-calculated usually, but manual here) */}
+                  {/* Height */}
                   <div className="flex-1 space-y-1">
                     <Label htmlFor="height">Height (px)</Label>
                     <div className="relative">
@@ -305,16 +340,16 @@ export default function VideoToGifPage() {
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
-                            onClick={() => setHeight(height)}
-                            disabled={videoFile === null}
+                            onClick={handleResetDimensions}
+                            disabled={originalHeight === null}
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-secondary rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            aria-label="Reset to original width"
+                            aria-label="Reset to original dimensions"
                           >
                             <RulerDimensionLine className="h-4 w-4 text-foreground rotate-90" />
                           </button>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-xs">
-                          Reset to original height
+                          Reset to original dimensions
                         </TooltipContent>
                       </Tooltip>
                     </div>
@@ -375,7 +410,7 @@ export default function VideoToGifPage() {
               <Card className="overflow-hidden">
                 <div>
                   {/* GIF Preview */}
-                  <div className="bg-black w-full aspect-video flex items-center justify-center rounded-t-lg overflow-hidden">
+                  <div className="bg-black w-full flex items-center justify-center rounded-t-lg overflow-hidden">
                     <img src={outputGif} alt="Generated GIF" className="w-full h-full object-contain" />
                   </div>
 
