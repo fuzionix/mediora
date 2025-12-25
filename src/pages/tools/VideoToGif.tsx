@@ -456,7 +456,7 @@ export default function VideoToGifPage() {
                         type="number"
                         min="100"
                         value={width}
-                        onChange={(e) => handleWidthChange(parseInt(e.target.value) || 480)}
+                        onChange={(e) => handleWidthChange(parseInt(e.target.value) || 0)}
                         className="w-full pr-10"
                       />
                       <Tooltip>
@@ -486,7 +486,7 @@ export default function VideoToGifPage() {
                         type="number"
                         min="100"
                         value={height}
-                        onChange={(e) => handleHeightChange(parseInt(e.target.value) || 270)}
+                        onChange={(e) => handleHeightChange(parseInt(e.target.value) || 0)}
                         className="w-full pr-10"
                         disabled={aspectRatio !== 'custom'}
                       />
