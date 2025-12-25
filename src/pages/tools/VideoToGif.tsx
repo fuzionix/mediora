@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { 
-  RotateCcw, 
-  Download, 
-  FileArchive, 
-  ArrowDown, 
-  CircleDashed, 
-  Loader2, 
+  RotateCcw,
+  Download,
+  FileArchive,
+  ArrowDown,
+  CircleDashed,
+  Loader2,
   ArrowRightToLine,
   RulerDimensionLine,
   ChevronDown,
@@ -16,6 +16,7 @@ import { Card } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Progress } from '@/components/ui/progress'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   DropdownMenu,
@@ -93,6 +94,35 @@ export default function VideoToGifPage() {
   useEffect(() => {
     loadFFmpeg()
   }, [loadFFmpeg])
+
+  // Extract Frame and Size from FFmpeg log message
+  const progressDetails = useMemo(() => {
+    const msg = ffmpegState.message;
+    if (!msg) return null;
+
+    // Check if it's a standard processing log line
+    if (msg.includes('frame=')) {
+      const frameMatch = msg.match(/frame=\s*(\d+)/);
+      const sizeMatch = msg.match(/size=\s*([0-9.]+[a-zA-Z]+)/);
+      
+      return {
+        frame: frameMatch ? frameMatch[1] : '-',
+        size: sizeMatch ? sizeMatch[1] : '-'
+      };
+    }
+    
+    return null;
+  }, [ffmpegState.message]);
+
+  // Sanitize progress value to prevent huge numbers
+  const sanitizedProgress = useMemo(() => {
+    const p = ffmpegState.progress;
+    // Check for NaN, Infinity, or unrealistic percentages (likely due to div by zero)
+    if (typeof p !== 'number' || isNaN(p) || !isFinite(p)) return 0;
+    if (p < 0) return 0;
+    if (p > 100) return 0;
+    return Math.round(p);
+  }, [ffmpegState.progress]);
 
   // Update height when width changes if AR is locked
   const updateHeightFromWidth = (w: number, ar: AspectRatio) => {
@@ -490,7 +520,7 @@ export default function VideoToGifPage() {
                           <ChevronDown className="h-4 w-4 opacity-50" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent>
+                      <DropdownMenuContent align="end">
                         {ASPECT_RATIOS.map((ar) => (
                           <DropdownMenuItem 
                             key={ar.value} 
@@ -515,7 +545,7 @@ export default function VideoToGifPage() {
                           <ChevronDown className="h-4 w-4 opacity-50" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent>
+                      <DropdownMenuContent align="end">
                         {FIT_MODES.map((fm) => (
                           <DropdownMenuItem 
                             key={fm.value} 
@@ -552,15 +582,16 @@ export default function VideoToGifPage() {
                   </Button>
                   
                   {isConverting && (
-                    <div className="space-y-1">
-                       <p className="text-xs text-muted-foreground text-center">{ffmpegState.message}</p>
-                       {/* Progress Bar Representation */}
-                       <div className="h-1 w-full bg-secondary rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-primary transition-all duration-300" 
-                            style={{ width: `${Math.max(5, ffmpegState.progress)}%` }} 
-                          />
+                    <div className="space-y-1 pt-1">
+                       <div className="flex justify-between items-center text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">{sanitizedProgress}%</span>
+                          <span>
+                            {progressDetails 
+                              ? `Frame: ${progressDetails.frame} | Size: ${progressDetails.size}` 
+                              : (ffmpegState.message.length > 30 ? 'Encoding...' : ffmpegState.message)}
+                          </span>
                        </div>
+                       <Progress value={sanitizedProgress} className="h-1" />
                     </div>
                   )}
 
