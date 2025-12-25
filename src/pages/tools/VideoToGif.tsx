@@ -619,7 +619,10 @@ export default function VideoToGifPage() {
               <Card className="overflow-hidden">
                 <div>
                   {/* GIF Preview */}
-                  <div className="bg-black w-full flex items-center justify-center rounded-t-lg overflow-hidden">
+                  <div 
+                    className="bg-black w-full flex items-center justify-center rounded-t-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity" 
+                    onClick={() => window.open(outputGif, '_blank')}
+                  >
                     <img src={outputGif} alt="Generated GIF" className="w-full h-full object-contain" />
                   </div>
 

@@ -33,13 +33,6 @@ export const TOOLS: Tool[] = [
     path: '/tools/video-to-gif',
   },
   {
-    id: 'video-compressor',
-    name: 'Video Compressor',
-    description: 'Reduce video file size while maintaining quality',
-    category: 'other',
-    path: '/tools/video-compressor',
-  },
-  {
     id: 'video-trimmer',
     name: 'Video Trimmer',
     description: 'Trim and cut videos to desired length',
@@ -60,6 +53,13 @@ export const TOOLS: Tool[] = [
     category: 'image',
     path: '/tools/image-converter',
     isComingSoon: true,
+  },
+  {
+    id: 'video-compressor',
+    name: 'Video Compressor',
+    description: 'Reduce video file size while maintaining quality',
+    category: 'other',
+    path: '/tools/video-compressor',
   },
 ]
 
