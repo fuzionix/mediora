@@ -9,13 +9,16 @@ import {
   ArrowRightToLine,
   RulerDimensionLine,
   ChevronDown,
-  Check
+  ChevronRight,
+  Check,
+  Settings2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Progress } from '@/components/ui/progress'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import {
@@ -24,6 +27,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import { GridBackground } from '@/components/layout/GridBackground'
 import { MediaUploadPanel } from '@/components/tool/MediaUploadPanel'
 import { MediaInfo } from '@/components/tool/MediaInfo'
@@ -67,6 +75,14 @@ const FIT_MODES: { label: string; value: FitMode; description: string }[] = [
   },
 ]
 
+const DITHERING_MODES: { label: string; value: string; description: string }[] = [
+  { label: 'Sierra 2-4A', value: 'sierra2_4a', description: 'Balanced quality and speed (Default)' },
+  { label: 'Floyd-Steinberg', value: 'floyd_steinberg', description: 'High quality error diffusion' },
+  { label: 'Bayer', value: 'bayer', description: 'Ordered dithering, crosshatch pattern' },
+  { label: 'Heckbert', value: 'heckbert', description: 'Simple error diffusion' },
+  { label: 'None', value: 'none', description: 'No dithering, smaller file size but banding' },
+]
+
 export default function VideoToGifPage() {
   const { state: ffmpegState, load: loadFFmpeg, writeFile, readFile, exec, deleteFile } = useFFmpeg()
 
@@ -74,18 +90,22 @@ export default function VideoToGifPage() {
   const [videoPreview, setVideoPreview] = useState<string | null>(null)
   const [videoDuration, setVideoDuration] = useState<number | null>(null)
   
+  // Basic Settings
   const [startTime, setStartTime] = useState(0)
   const [endTime, setEndTime] = useState(5)
   const [fps, setFps] = useState(15)
-  
   const [originalWidth, setOriginalWidth] = useState<number | null>(null)
   const [originalHeight, setOriginalHeight] = useState<number | null>(null)
-  
   const [width, setWidth] = useState(480)
   const [height, setHeight] = useState(270)
-  
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>('original')
   const [fitMode, setFitMode] = useState<FitMode>('fit')
+
+  // Advanced Settings
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
+  const [speed, setSpeed] = useState(1)
+  const [isReverse, setIsReverse] = useState(false)
+  const [dithering, setDithering] = useState('sierra2_4a')
 
   const [outputGif, setOutputGif] = useState<string | null>(null)
   const [outputBlob, setOutputBlob] = useState<Blob | null>(null)
@@ -100,7 +120,6 @@ export default function VideoToGifPage() {
     const msg = ffmpegState.message;
     if (!msg) return null;
 
-    // Check if it's a standard processing log line
     if (msg.includes('frame=')) {
       const frameMatch = msg.match(/frame=\s*(\d+)/);
       const sizeMatch = msg.match(/size=\s*([0-9.]+[a-zA-Z]+)/);
@@ -110,21 +129,17 @@ export default function VideoToGifPage() {
         size: sizeMatch ? sizeMatch[1] : '-'
       };
     }
-    
     return null;
   }, [ffmpegState.message]);
 
-  // Sanitize progress value to prevent huge numbers
   const sanitizedProgress = useMemo(() => {
     const p = ffmpegState.progress;
-    // Check for NaN, Infinity, or unrealistic percentages (likely due to div by zero)
     if (typeof p !== 'number' || isNaN(p) || !isFinite(p)) return 0;
     if (p < 0) return 0;
     if (p > 100) return 0;
     return Math.round(p);
   }, [ffmpegState.progress]);
 
-  // Update height when width changes if AR is locked
   const updateHeightFromWidth = (w: number, ar: AspectRatio) => {
     let ratio = 0
     if (ar === 'original' && originalWidth && originalHeight) {
@@ -133,13 +148,9 @@ export default function VideoToGifPage() {
       const preset = ASPECT_RATIOS.find(r => r.value === ar)
       if (preset?.ratio) ratio = preset.ratio
     }
-
-    if (ratio > 0) {
-      setHeight(Math.round(w / ratio))
-    }
+    if (ratio > 0) setHeight(Math.round(w / ratio))
   }
 
-  // Update width when height changes if AR is locked
   const updateWidthFromHeight = (h: number, ar: AspectRatio) => {
     let ratio = 0
     if (ar === 'original' && originalWidth && originalHeight) {
@@ -148,10 +159,7 @@ export default function VideoToGifPage() {
       const preset = ASPECT_RATIOS.find(r => r.value === ar)
       if (preset?.ratio) ratio = preset.ratio
     }
-
-    if (ratio > 0) {
-      setWidth(Math.round(h * ratio))
-    }
+    if (ratio > 0) setWidth(Math.round(h * ratio))
   }
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,6 +202,9 @@ export default function VideoToGifPage() {
     setHeight(270)
     setAspectRatio('original')
     setFitMode('fit')
+    setSpeed(1)
+    setIsReverse(false)
+    setDithering('sierra2_4a')
   }
 
   const handleResetEndTime = () => {
@@ -248,29 +259,21 @@ export default function VideoToGifPage() {
       // Construct Filter String
       let filterString = `fps=${fps}`
       
-      // Calculate final dimensions or filter logic based on Fit Mode
+      // 1. Scaling / Cropping
       if (fitMode === 'fit') {
         if (originalWidth && originalHeight) {
           const scaleX = width / originalWidth
           const scaleY = height / originalHeight
           const scaleFactor = Math.min(scaleX, scaleY)
-          
           const finalScale = scaleFactor > 1 ? 1 : scaleFactor
-          
           let finalW = Math.round(originalWidth * finalScale)
           let finalH = Math.round(originalHeight * finalScale)
-          
-          // Ensure even dimensions
           if (finalW % 2 !== 0) finalW -= 1
           if (finalH % 2 !== 0) finalH -= 1
-          
-          // Prevent 0 dimensions
           finalW = Math.max(2, finalW)
           finalH = Math.max(2, finalH)
-
           filterString += `,scale=${finalW}:${finalH}:flags=lanczos`
         } else {
-          // Fallback if metadata missing (shouldn't happen)
           filterString += `,scale=${width}:-1:flags=lanczos`
         }
       } else if (fitMode === 'fill') {
@@ -279,6 +282,17 @@ export default function VideoToGifPage() {
          filterString += `,scale=${width}:${height}:flags=lanczos`
       } else if (fitMode === 'pad') {
          filterString += `,scale=${width}:${height}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${width}:${height}:(ow-iw)/2:(oh-ih)/2`
+      }
+
+      // 2. Speed (setpts)
+      // PTS (Presentation Time Stamp) modification. 0.5 * PTS means play twice as fast.
+      if (speed !== 1) {
+        filterString += `,setpts=${(1/speed).toFixed(4)}*PTS`
+      }
+
+      // 3. Reverse
+      if (isReverse) {
+        filterString += `,reverse`
       }
 
       // Pass 1: Palette Generation
@@ -291,12 +305,14 @@ export default function VideoToGifPage() {
       ])
 
       // Pass 2: Palette Use and GIF Creation
+      const paletteUseFilter = `paletteuse=dither=${dithering}`
+      
       await exec([
         '-ss', startTime.toString(),
         '-t', duration.toString(),
         '-i', inputName,
         '-i', paletteName,
-        '-lavfi', `${filterString} [x]; [x][1:v] paletteuse`,
+        '-lavfi', `${filterString} [x]; [x][1:v] ${paletteUseFilter}`,
         '-y', outputName
       ])
 
@@ -383,7 +399,6 @@ export default function VideoToGifPage() {
               <div className="space-y-4">
                 {/* Time Settings */}
                 <div className="flex gap-2">
-                  {/* Start Time */}
                   <div className="flex-1 space-y-1">
                     <Label htmlFor="start-time">Start Time (sec)</Label>
                     <Input
@@ -396,8 +411,6 @@ export default function VideoToGifPage() {
                       className="w-full"
                     />
                   </div>
-
-                  {/* End Time */}
                   <div className="flex-1 space-y-1">
                     <Label htmlFor="end-time">End Time (sec)</Label>
                     <div className="relative">
@@ -446,6 +459,7 @@ export default function VideoToGifPage() {
                   />
                 </div>
 
+                {/* Dimensions */}
                 <div className="flex gap-2">
                   {/* Width */}
                   <div className="flex-1 space-y-1">
@@ -564,6 +578,82 @@ export default function VideoToGifPage() {
                   </div>
                 </div>
 
+                {/* Collapsible Advanced Settings */}
+                <Collapsible open={isAdvancedOpen} onOpenChange={setIsAdvancedOpen} className="w-full border rounded-md !mt-2 px-3 py-1 bg-secondary/10">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Settings2 className="h-4 w-4 text-muted-foreground" />
+                      <Label className="cursor-pointer font-medium">Advanced Settings</Label>
+                    </div>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="w-9 p-0">
+                        <ChevronRight className={`h-4 w-4 transition-transform duration-200 ${isAdvancedOpen ? 'rotate-90' : ''}`} />
+                        <span className="sr-only">Toggle</span>
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                  
+                  <CollapsibleContent className="space-y-4 pt-2">
+                    {/* Play Speed */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between mb-2">
+                        <Label htmlFor="speed">Play Speed</Label>
+                        <span className="text-xs text-muted-foreground">{speed}x</span>
+                      </div>
+                      <Slider
+                        id="speed"
+                        min={0.25}
+                        max={4}
+                        step={0.25}
+                        value={[speed]}
+                        onValueChange={(value) => setSpeed(value[0])}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Reverse Toggle (Switch) */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label htmlFor="reverse-switch">Reverse Video</Label>
+                        <p className="text-xs text-muted-foreground">Play the GIF backwards</p>
+                      </div>
+                      <Switch
+                        id="reverse-switch"
+                        checked={isReverse}
+                        onCheckedChange={setIsReverse}
+                      />
+                    </div>
+
+                    {/* Dithering */}
+                    <div className="space-y-1">
+                      <Label>Dithering Algorithm</Label>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" className="w-full justify-between !mb-2 px-3 font-normal text-sm">
+                            {DITHERING_MODES.find(d => d.value === dithering)?.label}
+                            <ChevronDown className="h-4 w-4 opacity-50" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[240px]">
+                          {DITHERING_MODES.map((d) => (
+                            <DropdownMenuItem 
+                              key={d.value} 
+                              onClick={() => setDithering(d.value)}
+                              className="flex-col items-start gap-1"
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <span>{d.label}</span>
+                                {dithering === d.value && <Check className="h-4 w-4" />}
+                              </div>
+                              <span className="text-xs text-muted-foreground">{d.description}</span>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+
                 {/* Action Buttons */}
                 <div className="pt-2 space-y-2">
                   <Button 
@@ -660,10 +750,8 @@ export default function VideoToGifPage() {
                     <p className="mt-0 text-xs text-muted-foreground">
                       Enhance your GIF with additional tools (coming soon)
                     </p> 
-
-                    {/* Placeholder Buttons */}
                     <div className="mt-4 space-y-2">
-                      
+                      {/* Placeholders */}
                     </div>
                   </div>
                 </Card>
