@@ -374,6 +374,8 @@ export default function VideoToGifPage() {
                     fileName={videoFile?.name}
                     fileSize={videoFile?.size}
                     duration={videoDuration}
+                    resolution={originalWidth && originalHeight ? `${originalWidth} x ${originalHeight}` : undefined}
+                    format={videoFile?.type}
                   />
                 </div>
               )}
