@@ -15,73 +15,41 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Slider } from '@/components/ui/slider'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Progress } from '@/components/ui/progress'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Progress } from '@/components/ui/progress'
+import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { GridBackground } from '@/components/layout/GridBackground'
 import { MediaUploadPanel } from '@/components/tool/MediaUploadPanel'
 import { MediaInfo } from '@/components/tool/MediaInfo'
 import { FeaturePanel } from '@/components/tool/FeaturePanel'
 import { useFFmpeg } from '@/hooks/use-ffmpeg'
 import { downloadAsGif, downloadAsZip } from '@/lib/utils'
+import type { AspectRatio, FitMode } from '@/constants/media'
+import { ASPECT_RATIOS, FIT_MODES, DITHERING_MODES } from '@/constants/media'
 
-type AspectRatio = 'original' | 'custom' | '16:9' | '4:3' | '1:1' | '9:16' | '21:9'
-type FitMode = 'fit' | 'fill' | 'stretch' | 'pad'
-
-const ASPECT_RATIOS: { label: string; value: AspectRatio; ratio?: number }[] = [
-  { label: 'Original', value: 'original' },
-  { label: 'Custom', value: 'custom' },
-  { label: '16:9', value: '16:9', ratio: 16 / 9 },
-  { label: '4:3', value: '4:3', ratio: 4 / 3 },
-  { label: '1:1', value: '1:1', ratio: 1 },
-  { label: '9:16', value: '9:16', ratio: 9 / 16 },
-  { label: '21:9', value: '21:9', ratio: 21 / 9 },
-]
-
-const FIT_MODES: { label: string; value: FitMode; description: string }[] = [
-  { 
-    label: 'Fit', 
-    value: 'fit', 
-    description: 'Shrinks video to fit inside dimensions, but keeps original size if smaller.' 
-  },
-  { 
-    label: 'Fill', 
-    value: 'fill', 
-    description: 'Zooms to fill the entire area, cropping edges to maintain aspect ratio.' 
-  },
-  { 
-    label: 'Stretch', 
-    value: 'stretch', 
-    description: 'Forces exact width and height, which may squash or stretch the image.' 
-  },
-  { 
-    label: 'Padded', 
-    value: 'pad', 
-    description: 'Fits entire video inside dimensions, adding black bars to fill empty space.' 
-  },
-]
-
-const DITHERING_MODES: { label: string; value: string; description: string }[] = [
-  { label: 'Sierra 2-4A', value: 'sierra2_4a', description: 'Balanced quality and speed (Default)' },
-  { label: 'Floyd-Steinberg', value: 'floyd_steinberg', description: 'High quality error diffusion' },
-  { label: 'Bayer', value: 'bayer', description: 'Ordered dithering, crosshatch pattern' },
-  { label: 'Heckbert', value: 'heckbert', description: 'Simple error diffusion' },
-  { label: 'None', value: 'none', description: 'No dithering, smaller file size but banding' },
-]
+// Helper to parse HH:MM:SS.mm into seconds
+const parseTimeStringToSeconds = (timeStr: string) => {
+  const parts = timeStr.split(':')
+  if (parts.length !== 3) return 0
+  const h = parseFloat(parts[0])
+  const m = parseFloat(parts[1])
+  const s = parseFloat(parts[2])
+  return (h * 3600) + (m * 60) + s
+};
 
 export default function VideoToGifPage() {
   const { state: ffmpegState, load: loadFFmpeg, writeFile, readFile, exec, deleteFile } = useFFmpeg()
@@ -117,28 +85,47 @@ export default function VideoToGifPage() {
 
   // Extract Frame and Size from FFmpeg log message
   const progressDetails = useMemo(() => {
-    const msg = ffmpegState.message;
-    if (!msg) return null;
+    const msg = ffmpegState.message
+    if (!msg) return null
 
     if (msg.includes('frame=')) {
-      const frameMatch = msg.match(/frame=\s*(\d+)/);
-      const sizeMatch = msg.match(/size=\s*([0-9.]+[a-zA-Z]+)/);
+      const frameMatch = msg.match(/frame=\s*(\d+)/)
+      const sizeMatch = msg.match(/size=\s*([0-9.]+[a-zA-Z]+)/)
+      const timeMatch = msg.match(/time=\s*(\d{2}:\d{2}:\d{2}\.\d{2})/)
       
       return {
         frame: frameMatch ? frameMatch[1] : '-',
-        size: sizeMatch ? sizeMatch[1] : '-'
-      };
+        size: sizeMatch ? sizeMatch[1] : '-',
+        time: timeMatch ? timeMatch[1] : null
+      }
     }
-    return null;
-  }, [ffmpegState.message]);
+    return null
+  }, [ffmpegState.message])
 
-  const sanitizedProgress = useMemo(() => {
+  const calculatedProgress = useMemo(() => {
+    // 1. If we have a time from logs, calculate manually
+    if (progressDetails?.time) {
+      const currentSeconds = parseTimeStringToSeconds(progressDetails.time)
+      const selectedDuration = endTime - startTime
+      
+      // The expected output duration changes based on speed
+      // Speed 2x   = Duration / 2
+      // Speed 0.5x = Duration / 0.5 (Duration * 2)
+      const expectedOutputDuration = selectedDuration / speed
+
+      if (expectedOutputDuration <= 0) return 0
+
+      const percent = (currentSeconds / expectedOutputDuration) * 100
+      return Math.min(Math.round(percent), 100)
+    }
+
+    // 2. Fallback to the hook's progress
     const p = ffmpegState.progress;
     if (typeof p !== 'number' || isNaN(p) || !isFinite(p)) return 0;
     if (p < 0) return 0;
-    if (p > 100) return 0;
+    if (p > 100) return 100;
     return Math.round(p);
-  }, [ffmpegState.progress]);
+  }, [progressDetails, endTime, startTime, speed, ffmpegState.progress]);
 
   const updateHeightFromWidth = (w: number, ar: AspectRatio) => {
     let ratio = 0
@@ -674,14 +661,14 @@ export default function VideoToGifPage() {
                   {isConverting && (
                     <div className="space-y-1 pt-1">
                        <div className="flex justify-between items-center text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">{sanitizedProgress}%</span>
+                          <span className="font-medium text-foreground">{calculatedProgress}%</span>
                           <span>
                             {progressDetails 
                               ? `Frame: ${progressDetails.frame} | Size: ${progressDetails.size}` 
                               : (ffmpegState.message.length > 30 ? 'Encoding...' : ffmpegState.message)}
                           </span>
                        </div>
-                       <Progress value={sanitizedProgress} className="h-1" />
+                       <Progress value={calculatedProgress} className="h-1" />
                     </div>
                   )}
 
