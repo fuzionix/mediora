@@ -9,6 +9,8 @@ export interface FFmpegState {
   progress: number
 }
 
+type LogListener = (message: string) => void
+
 export function useFFmpeg() {
   const [state, setState] = useState<FFmpegState>({
     isLoaded: false,
@@ -17,7 +19,8 @@ export function useFFmpeg() {
     progress: 0,
   })
   
-  // Use a ref to persist the FFmpeg instance across renders without triggering re-renders
+  const externalLogListener = useRef<LogListener | null>(null)
+  
   const ffmpegRef = useRef<FFmpeg>(new FFmpeg())
 
   const load = useCallback(async () => {
@@ -32,8 +35,11 @@ export function useFFmpeg() {
     const ffmpeg = ffmpegRef.current
 
     ffmpeg.on('log', ({ message }) => {
-      console.log('FFmpeg Log:', message)
       setState(prev => ({ ...prev, message }))
+      
+      if (externalLogListener.current) {
+        externalLogListener.current(message)
+      }
     })
 
     ffmpeg.on('progress', ({ progress }) => {
@@ -64,7 +70,6 @@ export function useFFmpeg() {
     }
   }, [state.isLoaded])
 
-  // Helper to write file to FFmpeg memory
   const writeFile = async (fileName: string, file: File) => {
     const ffmpeg = ffmpegRef.current
     const arrayBuffer = await file.arrayBuffer()
@@ -75,7 +80,6 @@ export function useFFmpeg() {
   const readFile = async (fileName: string): Promise<Blob> => {
     const ffmpeg = ffmpegRef.current
     const data = await ffmpeg.readFile(fileName)
-    
     return new Blob([data as any], { type: 'image/gif' })
   }
 
@@ -89,8 +93,13 @@ export function useFFmpeg() {
     try {
       await ffmpeg.deleteFile(fileName)
     } catch {
-      // Ignore errors during file deletion
+      // Ignore errors
     }
+  }
+
+  // Allow components to attach a temporary listener to capture logs
+  const setLogListener = (listener: LogListener | null) => {
+    externalLogListener.current = listener
   }
 
   return {
@@ -99,6 +108,7 @@ export function useFFmpeg() {
     writeFile,
     readFile,
     exec,
-    deleteFile
+    deleteFile,
+    setLogListener
   }
 }

@@ -38,6 +38,7 @@ import { MediaInfo } from '@/components/tool/MediaInfo'
 import { FeaturePanel } from '@/components/tool/FeaturePanel'
 import { useFFmpeg } from '@/hooks/use-ffmpeg'
 import { downloadAsGif, downloadAsZip } from '@/lib/utils'
+import { parseMediaMetadata, type MediaMetadata } from '@/lib/ffmpegUtils'
 import type { AspectRatio, FitMode } from '@/constants/media'
 import { ASPECT_RATIOS, FIT_MODES, DITHERING_MODES } from '@/constants/media'
 
@@ -49,14 +50,25 @@ const parseTimeStringToSeconds = (timeStr: string) => {
   const m = parseFloat(parts[1])
   const s = parseFloat(parts[2])
   return (h * 3600) + (m * 60) + s
-};
+}
 
 export default function VideoToGifPage() {
-  const { state: ffmpegState, load: loadFFmpeg, writeFile, readFile, exec, deleteFile } = useFFmpeg()
+  const { 
+    state: ffmpegState, 
+    load: loadFFmpeg, 
+    writeFile, 
+    readFile, 
+    exec, 
+    deleteFile,
+    setLogListener 
+  } = useFFmpeg()
 
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [videoPreview, setVideoPreview] = useState<string | null>(null)
-  const [videoDuration, setVideoDuration] = useState<number | null>(null)
+  
+  // Metadata State
+  const [metadata, setMetadata] = useState<MediaMetadata | null>(null)
+  const [isProbing, setIsProbing] = useState(false)
   
   // Basic Settings
   const [startTime, setStartTime] = useState(0)
@@ -120,12 +132,12 @@ export default function VideoToGifPage() {
     }
 
     // 2. Fallback to the hook's progress
-    const p = ffmpegState.progress;
-    if (typeof p !== 'number' || isNaN(p) || !isFinite(p)) return 0;
-    if (p < 0) return 0;
-    if (p > 100) return 100;
-    return Math.round(p);
-  }, [progressDetails, endTime, startTime, speed, ffmpegState.progress]);
+    const p = ffmpegState.progress
+    if (typeof p !== 'number' || isNaN(p) || !isFinite(p)) return 0
+    if (p < 0) return 0
+    if (p > 100) return 100
+    return Math.round(p)
+  }, [progressDetails, endTime, startTime, speed, ffmpegState.progress])
 
   const updateHeightFromWidth = (w: number, ar: AspectRatio) => {
     let ratio = 0
@@ -149,7 +161,31 @@ export default function VideoToGifPage() {
     if (ratio > 0) setWidth(Math.round(h * ratio))
   }
 
-  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const probeFile = async (file: File) => {
+    if (!ffmpegState.isLoaded) return
+
+    setIsProbing(true)
+    const inputName = 'input.mp4'
+    const logs: string[] = []
+
+    try {
+      await writeFile(inputName, file)
+      setLogListener((msg) => {
+        logs.push(msg)
+      })
+      await exec(['-i', inputName])
+    } catch {
+      console.log('Probe finished (expected exit)')
+    } finally {
+      // Detach listener and Parse
+      setLogListener(null)
+      const parsed = parseMediaMetadata(logs)
+      setMetadata(parsed)
+      setIsProbing(false)
+    }
+  }
+
+  const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       setVideoFile(file)
@@ -157,13 +193,19 @@ export default function VideoToGifPage() {
       setVideoPreview(preview)
       setOutputGif(null)
       setOutputBlob(null)
+      setMetadata(null)
+
+      await probeFile(file)
     }
   }
 
   const handleVideoLoadedMetadata = (e: React.SyntheticEvent<HTMLVideoElement>) => {
     const vid = e.currentTarget
-    setVideoDuration(vid.duration)
-    setEndTime(Math.round(vid.duration * 10) / 10)
+    if (!metadata?.duration) {
+      setEndTime(Math.round(vid.duration * 10) / 10)
+    } else {
+      setEndTime(Math.round(metadata.duration * 10) / 10)
+    }
     
     const vidWidth = vid.videoWidth
     const vidHeight = vid.videoHeight
@@ -178,6 +220,7 @@ export default function VideoToGifPage() {
   const handleReset = () => {
     setVideoFile(null)
     setVideoPreview(null)
+    setMetadata(null)
     setStartTime(0)
     setEndTime(5)
     setFps(15)
@@ -195,8 +238,9 @@ export default function VideoToGifPage() {
   }
 
   const handleResetEndTime = () => {
-    if (videoDuration !== null) {
-      setEndTime(Math.round(videoDuration * 10) / 10)
+    const duration = metadata?.duration || (document.querySelector('video') as HTMLVideoElement)?.duration
+    if (duration) {
+      setEndTime(Math.round(duration * 10) / 10)
     }
   }
 
@@ -370,13 +414,26 @@ export default function VideoToGifPage() {
                     />
                   </div>
                   <hr className="mx-4 mt-4" />
-                  <MediaInfo
-                    fileName={videoFile?.name}
-                    fileSize={videoFile?.size}
-                    duration={videoDuration}
-                    resolution={originalWidth && originalHeight ? `${originalWidth} x ${originalHeight}` : undefined}
-                    format={videoFile?.type}
-                  />
+                  <div className="relative">
+                    {isProbing && (
+                      <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center backdrop-blur-[1px]">
+                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      </div>
+                    )}
+                    <MediaInfo
+                      fileName={videoFile?.name}
+                      fileSize={videoFile?.size}
+                      duration={metadata?.duration || (document.querySelector('video') as HTMLVideoElement)?.duration}
+                      resolution={metadata?.resolution || (originalWidth && originalHeight ? `${originalWidth}x${originalHeight}` : undefined)}
+                      format={videoFile?.type}
+                      videoCodec={metadata?.videoCodec}
+                      audioCodec={metadata?.audioCodec}
+                      frameRate={metadata?.fps}
+                      bitrate={metadata?.bitrate}
+                      audioChannels={metadata?.audioChannels ? (metadata.audioChannels === 'stereo' ? 2 : 1) : undefined}
+                      sampleRate={metadata?.audioFrequency}
+                    />
+                  </div>
                 </div>
               )}
             </MediaUploadPanel>
@@ -416,7 +473,7 @@ export default function VideoToGifPage() {
                         <TooltipTrigger asChild>
                           <button
                             onClick={handleResetEndTime}
-                            disabled={videoDuration === null}
+                            disabled={!metadata?.duration && !originalWidth}
                             className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-secondary rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             aria-label="Reset to video duration"
                           >
