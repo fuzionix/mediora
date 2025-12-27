@@ -1,17 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { 
-  RotateCcw,
-  Download,
-  FileArchive,
   ArrowDown,
-  CircleDashed,
-  Loader2,
   ArrowRightToLine,
-  RulerDimensionLine,
+  Check,
+  CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Check,
+  CircleDashed,
+  Download,
+  FileArchive,
+  FileImage,
+  Loader2,
+  Package,
+  RotateCcw,
+  RulerDimensionLine,
   Settings2,
+  SquareStack
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -29,6 +33,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Progress } from '@/components/ui/progress'
+import { Separator } from '@/components/ui/separator'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -138,6 +143,17 @@ export default function VideoToGifPage() {
     if (p > 100) return 100
     return Math.round(p)
   }, [progressDetails, endTime, startTime, speed, ffmpegState.progress])
+
+  const outputStats = useMemo(() => {
+    if (!outputBlob) return null;
+    const duration = (endTime - startTime) / speed;
+    return {
+      size: (outputBlob.size / 1024 / 1024).toFixed(2),
+      duration: duration.toFixed(1),
+      frames: Math.floor(duration * fps),
+      resolution: `${width} x ${height}`
+    }
+  }, [outputBlob, endTime, startTime, speed, fps, width, height]);
 
   const updateHeightFromWidth = (w: number, ar: AspectRatio) => {
     let ratio = 0
@@ -783,22 +799,51 @@ export default function VideoToGifPage() {
               {/* Additional Tools Panel */}
               <div>
                 <Card className="p-4 top-20">
-                  <div>
-                    <h2 className="text-lg font-medium">Conversion Complete</h2>
-                    <p className="mt-0 text-xs text-muted-foreground">
-                      Your GIF is ready. The file size is {(outputBlob?.size ? outputBlob.size / 1024 / 1024 : 0).toFixed(2)} MB.
-                    </p>
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="h-8 w-8 mr-2 rounded-full bg-green-100 flex items-center justify-center">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-medium leading-none">Conversion Complete</h2>
+                      <p className="text-xs text-muted-foreground mt-1">Your file is ready for download</p>
+                    </div>
+                  </div>
+                  
+                  <Separator className="my-3" />
+
+                  <div className="grid grid-cols-2 gap-y-1 text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <FileImage className="h-4 w-4" />
+                      <span>Resolution</span>
+                    </div>
+                    <div className="font-medium text-right">{outputStats?.resolution}</div>
+
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <RulerDimensionLine className="h-4 w-4" />
+                      <span>Duration</span>
+                    </div>
+                    <div className="font-medium text-right">{outputStats?.duration} s</div>
+
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <SquareStack className="h-4 w-4" />
+                      <span>Total Frames</span>
+                    </div>
+                    <div className="font-medium text-right">{outputStats?.frames}</div>
+
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Package className="h-4 w-4" />
+                      <span>File Size</span>
+                    </div>
+                    <div className="font-medium text-right">{outputStats?.size} MB</div>
                   </div>
                 </Card>
+
                 <Card className="p-4 mt-4 top-20">
                   <div>
                     <h2 className="text-lg font-medium">Further Adjustments</h2>
                     <p className="mt-0 text-xs text-muted-foreground">
                       Enhance your GIF with additional tools (coming soon)
                     </p> 
-                    <div className="mt-4 space-y-2">
-                      {/* Placeholders */}
-                    </div>
                   </div>
                 </Card>
               </div>
