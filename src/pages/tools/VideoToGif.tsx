@@ -433,7 +433,7 @@ export default function VideoToGifPage() {
                   <div className="relative">
                     {isProbing && (
                       <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center backdrop-blur-[1px]">
-                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       </div>
                     )}
                     <MediaInfo

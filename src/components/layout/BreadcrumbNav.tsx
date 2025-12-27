@@ -7,13 +7,23 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb'
-import { SlashIcon, Github, Wifi, WifiOff } from "lucide-react"
+import { Button } from '@/components/ui/button'
+import { 
+  SlashIcon, 
+  Github, 
+  Wifi, 
+  WifiOff, 
+  Sun, 
+  Moon 
+} from "lucide-react"
 import { TOOLS, INFO_LINKS } from '@/lib/toolsRegistry'
 import { useState, useEffect } from 'react'
+import { useTheme } from '@/hooks/use-theme'
 
 export function BreadcrumbNav() {
   const location = useLocation()
   const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const { theme, toggleTheme } = useTheme()
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true)
@@ -82,15 +92,30 @@ export function BreadcrumbNav() {
       </Breadcrumb>
 
       <div className="flex items-center gap-2 ml-auto mr-4">
+        {/* Theme Toggle */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleTheme}
+          className="h-8 w-8"
+          aria-label="Toggle theme"
+        >
+          {theme === 'dark' ? (
+            <Moon className="h-4 w-4 text-slate-700 dark:text-slate-200" />
+          ) : (
+            <Sun className="h-4 w-4 text-slate-700 dark:text-slate-200" />
+          )}
+        </Button>
+
         {/* GitHub Button */}
         <a
           href="https://github.com/fuzionix/mediora"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center justify-center"
+          className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-accent hover:text-accent-foreground"
           aria-label="View on GitHub"
         >
-          <Github className="h-4 w-4 text-slate-700" />
+          <Github className="h-4 w-4 text-slate-700 dark:text-slate-200" />
         </a>
 
         <div className="border-l h-4 mx-1" />
@@ -98,8 +123,8 @@ export function BreadcrumbNav() {
         {/* Network Status Badge */}
         <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-normal ${
           isOnline 
-            ? 'bg-green-100 text-green-800' 
-            : 'bg-red-100 text-red-800'
+            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
         }`}>
           {isOnline ? (
             <>

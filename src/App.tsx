@@ -11,7 +11,7 @@ function App() {
       <SidebarProvider>
         <AppSidebar />
         <main className="w-full min-h-screen">
-          <div className="sticky flex items-center top-0 z-50 bg-white border-b">
+          <div className="sticky flex items-center top-0 z-50 bg-sidebar border-b">
             <SidebarTrigger className="m-2" />
             <div className="border-l h-4 mr-3" />
             <BreadcrumbNav />

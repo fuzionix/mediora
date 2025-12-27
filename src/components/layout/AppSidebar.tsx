@@ -28,7 +28,7 @@ export function AppSidebar() {
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-2">
           <img src="/src/assets/logo/Mediora_logo.svg" alt="Mediora" className="h-8 w-8" />
-          <Badge variant={'outline'} className="rounded-full text-[0.625rem] text-slate-50 ml-auto bg-slate-900 shadow-none">v0.0.1</Badge>
+          <Badge variant={'outline'} className="rounded-full text-[0.625rem] text-background ml-auto bg-foreground shadow-none">v0.0.1</Badge>
         </div>
       </SidebarHeader>
 
