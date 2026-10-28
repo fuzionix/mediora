@@ -391,7 +391,7 @@ export default function VideoToGifPage() {
   return (
     <>
       <GridBackground />
-      <div className="space-y-4 mt-4 md:mt-6 xl:mt-8 max-w-4xl mx-auto">
+      <div className="space-y-4 md:mt-6 xl:mt-8 max-w-4xl mx-auto">
         {/* Header */}
         <div>
           <h1 className="text-4xl font-medium mb-1">Video to GIF</h1>
