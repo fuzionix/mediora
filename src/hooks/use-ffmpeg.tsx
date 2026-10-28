@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback } from 'react'
 import { FFmpeg } from '@ffmpeg/ffmpeg'
-import { toBlobURL } from '@ffmpeg/util'
 
 export interface FFmpegState {
   isLoaded: boolean
@@ -10,6 +9,18 @@ export interface FFmpegState {
 }
 
 type LogListener = (message: string) => void
+
+function resolveAssetUrl(relativePath: string): string {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.runtime?.getURL) {
+      return chrome.runtime.getURL(relativePath)
+    }
+  } catch {
+    // Running outside of an extension context (Vite dev/preview).
+  }
+
+  return new URL(`/${relativePath}`, window.location.origin).href
+}
 
 export function useFFmpeg() {
   const [state, setState] = useState<FFmpegState>({
@@ -47,11 +58,12 @@ export function useFFmpeg() {
     })
 
     try {
-      const baseURL = new URL('/ffmpeg', window.location.origin).href
-            
+      const coreURL = resolveAssetUrl('ffmpeg/ffmpeg-core.js')
+      const wasmURL = resolveAssetUrl('ffmpeg/ffmpeg-core.wasm')
+
       await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        coreURL,
+        wasmURL,
       })
 
       setState(prev => ({ 

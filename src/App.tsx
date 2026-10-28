@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { HashRouter, Routes, Route } from 'react-router-dom'
 import { AppSidebar } from '@/components/layout/AppSidebar'
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { BreadcrumbNav } from '@/components/layout/BreadcrumbNav'
@@ -7,7 +7,7 @@ import VideoToGifPage from '@/pages/tools/VideoToGif'
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <SidebarProvider>
         <AppSidebar />
         <main className="w-full min-h-screen">
@@ -19,12 +19,13 @@ function App() {
           <div className="p-4 md:p-8">
             <Routes>
               <Route path="/" element={<ExplorePage />} />
+              <Route path="/explore" element={<ExplorePage />} />
               <Route path="/tools/video-to-gif" element={<VideoToGifPage />} />
             </Routes>
           </div>
         </main>
       </SidebarProvider>
-    </BrowserRouter>
+    </HashRouter>
   )
 }
 

@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { ChevronDown, Compass, ShieldCheck } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { TOOL_CATEGORIES, getAllCategories, getToolsByCategory, INFO_LINKS } from '@/lib/toolsRegistry'
+import medioraLogo from '@/assets/logo/Mediora_logo.svg'
 
 export function AppSidebar() {
   const location = useLocation()
@@ -27,7 +28,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="border-b">
         <div className="flex items-center gap-2 px-2 py-2">
-          <img src="/src/assets/logo/Mediora_logo.svg" alt="Mediora" className="h-8 w-8" />
+          <img src={medioraLogo} alt="Mediora" className="h-8 w-8" />
           <Badge variant={'outline'} className="rounded-full text-[0.625rem] text-background ml-auto bg-foreground shadow-none">v0.0.1</Badge>
         </div>
       </SidebarHeader>
