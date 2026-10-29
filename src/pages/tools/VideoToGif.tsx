@@ -394,7 +394,7 @@ export default function VideoToGifPage() {
       <div className="space-y-4 md:mt-6 xl:mt-8 max-w-4xl mx-auto">
         {/* Header */}
         <div>
-          <h1 className="text-4xl font-medium mb-1">Video to GIF</h1>
+          <h1 className="text-3xl md:text-4xl font-medium mb-1">Video to GIF</h1>
           <p className="text-sm text-muted-foreground">
             Convert your videos to animated GIF format with custom settings
           </p>

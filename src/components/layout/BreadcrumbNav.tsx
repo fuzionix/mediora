@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { 
   SlashIcon, 
   Github, 
+  Info,
   Wifi, 
   WifiOff, 
   Sun, 
@@ -106,6 +107,15 @@ export function BreadcrumbNav() {
             <Sun className="h-4 w-4 text-slate-700 dark:text-slate-200" />
           )}
         </Button>
+
+        {/* About Page */}
+        <Link
+          to="/about"
+          className="inline-flex items-center justify-center h-8 w-8 rounded-md hover:bg-accent hover:text-accent-foreground"
+          aria-label="About Page"
+        >
+          <Info className="h-4 w-4 text-slate-700 dark:text-slate-200" />
+        </Link>
 
         {/* GitHub Button */}
         <a
