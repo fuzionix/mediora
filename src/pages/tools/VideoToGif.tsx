@@ -40,7 +40,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { GridBackground } from '@/components/layout/GridBackground'
 import { MediaUploadPanel } from '@/components/tool/MediaUploadPanel'
 import { MediaInfo } from '@/components/tool/MediaInfo'
-import { FeaturePanel } from '@/components/tool/FeaturePanel'
 import { useFFmpeg } from '@/hooks/use-ffmpeg'
 import { downloadAsGif, downloadAsZip } from '@/lib/utils'
 import { parseMediaMetadata, type MediaMetadata } from '@/lib/ffmpegUtils'
@@ -754,8 +753,6 @@ export default function VideoToGifPage() {
                 </div>
               </div>
             </Card>
-
-            <FeaturePanel />
           </div>
         </div>
 
