@@ -416,7 +416,9 @@ export default function VideoToGifPage() {
             <MediaUploadPanel
               isUploaded={!!videoPreview}
               onUpload={handleVideoUpload}
+              onClear={handleReset}
               accept="video/*"
+              supportedFormats={['MP4', 'MOV', 'AVI', 'MKV', 'WEBM']}
             >
               {videoPreview && (
                 <div>
@@ -832,15 +834,6 @@ export default function VideoToGifPage() {
                       <span>File Size</span>
                     </div>
                     <div className="font-medium text-right">{outputStats?.size} MB</div>
-                  </div>
-                </Card>
-
-                <Card className="p-4 mt-4 top-20">
-                  <div>
-                    <h2 className="text-lg font-medium">Further Adjustments</h2>
-                    <p className="mt-0 text-xs text-muted-foreground">
-                      Enhance your GIF with additional tools (coming soon)
-                    </p> 
                   </div>
                 </Card>
               </div>
