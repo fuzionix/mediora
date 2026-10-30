@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { 
-  ArrowDown,
   ArrowRightToLine,
   Check,
   CheckCircle2,
@@ -39,6 +38,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { GridBackground } from '@/components/layout/GridBackground'
 import { MediaUploadPanel } from '@/components/tool/MediaUploadPanel'
+import { ProcessingConnector } from '@/components/tool/ProcessingConnector'
 import { MediaInfo } from '@/components/tool/MediaInfo'
 import { useFFmpeg } from '@/hooks/use-ffmpeg'
 import { downloadAsGif, downloadAsZip } from '@/lib/utils'
@@ -758,9 +758,7 @@ export default function VideoToGifPage() {
           </div>
         </div>
 
-        <div className="flex justify-center items-center h-16">
-          <ArrowDown className="h-5 w-5 opacity-80" />
-        </div>
+        <ProcessingConnector isActive={isConverting} isComplete={!!outputGif} />
 
         {/* Output Section */}
         {outputGif ? (
