@@ -12,32 +12,16 @@ import {
   SlashIcon, 
   Github, 
   Info,
-  Wifi, 
-  WifiOff, 
+  ShieldCheck,
   Sun, 
   Moon 
 } from "lucide-react"
 import { TOOLS, INFO_LINKS } from '@/lib/toolsRegistry'
-import { useState, useEffect } from 'react'
 import { useTheme } from '@/hooks/use-theme'
 
 export function BreadcrumbNav() {
   const location = useLocation()
-  const [isOnline, setIsOnline] = useState(navigator.onLine)
   const { theme, toggleTheme } = useTheme()
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true)
-    const handleOffline = () => setIsOnline(false)
-
-    window.addEventListener('online', handleOnline)
-    window.addEventListener('offline', handleOffline)
-
-    return () => {
-      window.removeEventListener('online', handleOnline)
-      window.removeEventListener('offline', handleOffline)
-    }
-  }, [])
 
   const getBreadcrumbs = () => {
     const path = location.pathname
@@ -130,23 +114,12 @@ export function BreadcrumbNav() {
 
         <div className="border-l h-4 mx-1" />
 
-        {/* Network Status Badge */}
-        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-normal ${
-          isOnline 
-            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-        }`}>
-          {isOnline ? (
-            <>
-              <Wifi className="h-3 w-3" />
-              <span>Online</span>
-            </>
-          ) : (
-            <>
-              <WifiOff className="h-3 w-3" />
-              <span>Offline</span>
-            </>
-          )}
+        <div
+          className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-xs font-normal text-primary-dark dark:text-primary whitespace-nowrap"
+          title="Media files are processed on your device"
+        >
+          <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+          <span>Local only</span>
         </div>
       </div>
     </div>
