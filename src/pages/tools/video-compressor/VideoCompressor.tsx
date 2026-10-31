@@ -57,12 +57,16 @@ import {
   audioReserveKbps,
   buildCompressArgs,
   codecsForFormat,
-  estimateNamedPresetOutputs,
+  compressOptionsFromNamedPreset,
   estimateOutputBytes,
   estimateVideoBitrateKbps,
   expectedResolution,
+  NAMED_COMPRESSION_PRESETS,
   outputMimeType,
+  parseResolution,
   recommendedNamedPreset,
+  sampleEncodeWindow,
+  scaleSampleBytesToDuration,
   type NamedCompressionPreset,
 } from './videoCompress'
 
@@ -198,11 +202,14 @@ export default function VideoCompressorPage() {
   const [outputUrl, setOutputUrl] = useState<string | null>(null)
   const [outputBlob, setOutputBlob] = useState<Blob | null>(null)
   const [isConverting, setIsConverting] = useState(false)
+  const [isEstimating, setIsEstimating] = useState(false)
+  const [presetEstimates, setPresetEstimates] = useState<Partial<Record<NamedCompressionPreset, number>> | null>(null)
   const [encodeLog, setEncodeLog] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const previewUrlRef = useRef<string | null>(null)
   const outputUrlRef = useRef<string | null>(null)
+  const estimateRequest = useRef(0)
 
   useEffect(() => {
     loadFFmpeg()
@@ -233,19 +240,11 @@ export default function VideoCompressorPage() {
   const estimatedBytes = qualityMode === 'crf'
     ? 0
     : estimateOutputBytes(videoBitrateKbps, audioKbps, durationSec)
-  const presetEstimates = useMemo(() => {
-    if (!videoFile || durationSec <= 0) return null
-    return estimateNamedPresetOutputs({
-      sourceBytes: videoFile.size,
-      durationSec,
-      sourceWidth: originalWidth,
-      sourceHeight: originalHeight,
-      sourceFps: sourceFps,
-      sourceBitrateBps: metadata?.bitrate ?? null,
-      hasAudio: metadata ? hasAudio : true,
-    })
-  }, [videoFile, durationSec, originalWidth, originalHeight, sourceFps, metadata, hasAudio])
-  const recommendedPreset = presetEstimates && videoFile
+  const hasAllPresetEstimates = Boolean(
+    presetEstimates
+    && NAMED_COMPRESSION_PRESETS.every((name) => (presetEstimates[name] ?? 0) > 0),
+  )
+  const recommendedPreset = hasAllPresetEstimates && videoFile && presetEstimates
     ? recommendedNamedPreset(presetEstimates, videoFile.size)
     : null
   const fittedResolution = expectedResolution(
@@ -273,10 +272,11 @@ export default function VideoCompressorPage() {
       const currentSeconds = parseTimeStringToSeconds(progressDetails.time)
       return Math.min(100, Math.round((currentSeconds / durationSec) * 100))
     }
+    if (!encodeLog) return 0
     const progress = ffmpegState.progress
     if (!Number.isFinite(progress)) return 0
     return Math.min(100, Math.max(0, Math.round(progress)))
-  }, [progressDetails, durationSec, ffmpegState.progress])
+  }, [progressDetails, durationSec, encodeLog, ffmpegState.progress])
 
   const savings = videoFile && outputBlob && videoFile.size > 0
     ? 1 - (outputBlob.size / videoFile.size)
@@ -318,6 +318,13 @@ export default function VideoCompressorPage() {
   }
 
   const probeRequest = useRef(0)
+  const ffmpegQueue = useRef(Promise.resolve())
+
+  const runExclusive = (task: () => Promise<void>) => {
+    const run = ffmpegQueue.current.then(task, task)
+    ffmpegQueue.current = run.then(() => undefined, () => undefined)
+    return run
+  }
 
   const probeFile = async (file: File) => {
     if (!ffmpegState.isLoaded) return
@@ -326,23 +333,102 @@ export default function VideoCompressorPage() {
     const inputName = `probe-${requestId}.${fileExtension(file.name)}`
     const logs: string[] = []
     setIsProbing(true)
+    setPresetEstimates(null)
+    setIsEstimating(false)
 
-    try {
-      await writeFile(inputName, file)
-      setLogListener((message) => {
-        if (requestId === probeRequest.current) logs.push(message)
-      })
-      await exec(['-i', inputName])
-    } catch {
-      // ffmpeg exits non-zero when probing with -i and no output.
-    } finally {
-      await deleteFile(inputName)
-      if (requestId === probeRequest.current) {
-        setLogListener(null)
-        setMetadata(parseMediaMetadata(logs))
-        setIsProbing(false)
+    await runExclusive(async () => {
+      if (requestId !== probeRequest.current) return
+
+      try {
+        await writeFile(inputName, file)
+        setLogListener((message) => {
+          if (requestId === probeRequest.current) logs.push(message)
+        })
+        await exec(['-i', inputName])
+      } catch {
+        // ffmpeg exits non-zero when probing with -i and no output.
+      } finally {
+        await deleteFile(inputName)
+        if (requestId === probeRequest.current) {
+          setLogListener(null)
+          setMetadata(parseMediaMetadata(logs))
+          setIsProbing(false)
+        }
       }
-    }
+    })
+  }
+
+  const estimateNamedPresets = async (file: File) => {
+    if (!ffmpegState.isLoaded) return
+
+    const requestId = ++estimateRequest.current
+    const parsed = parseResolution(metadata?.resolution)
+    const sourceWidth = originalWidth || parsed?.width || null
+    const sourceHeight = originalHeight || parsed?.height || null
+    const fullDuration = durationSec
+    const sample = sampleEncodeWindow(fullDuration)
+    if (sample.durationSec <= 0) return
+
+    const inputName = `estimate-input.${fileExtension(file.name)}`
+
+    await runExclusive(async () => {
+      if (requestId !== estimateRequest.current) return
+
+      setIsEstimating(true)
+      setPresetEstimates(null)
+
+      try {
+        await writeFile(inputName, file)
+        const nextEstimates: Partial<Record<NamedCompressionPreset, number>> = {}
+
+        for (const name of NAMED_COMPRESSION_PRESETS) {
+          if (requestId !== estimateRequest.current) break
+
+          const outputName = `estimate-${name}.${PRESET_DEFAULTS[name].format}`
+          try {
+            const exitCode = await exec(buildCompressArgs(compressOptionsFromNamedPreset(name, {
+              inputName,
+              outputName,
+              width: sourceWidth || 1280,
+              height: sourceHeight || 720,
+              sourceWidth,
+              sourceHeight,
+              sourceFps,
+              sourceAudioCodec: metadata?.audioCodec,
+              hasAudio,
+              seekStartSec: sample.startSec,
+              durationLimitSec: sample.durationSec,
+            })))
+
+            if (requestId !== estimateRequest.current) break
+            if (typeof exitCode === 'number' && exitCode !== 0) continue
+
+            const blob = await readFile(outputName, outputMimeType(PRESET_DEFAULTS[name].format))
+            const estimated = scaleSampleBytesToDuration(blob.size, sample.durationSec, fullDuration)
+            if (estimated > 0) {
+              nextEstimates[name] = estimated
+              if (requestId === estimateRequest.current) {
+                setPresetEstimates({ ...nextEstimates })
+              }
+            }
+          } catch (estimateError) {
+            console.error(`Sample encode failed for ${name}:`, estimateError)
+          } finally {
+            await deleteFile(outputName)
+          }
+        }
+
+        if (requestId === estimateRequest.current) {
+          setPresetEstimates(Object.keys(nextEstimates).length > 0 ? nextEstimates : null)
+        }
+      } catch (estimateError) {
+        console.error('Sample encode estimation failed:', estimateError)
+        if (requestId === estimateRequest.current) setPresetEstimates(null)
+      } finally {
+        await deleteFile(inputName)
+        if (requestId === estimateRequest.current) setIsEstimating(false)
+      }
+    })
   }
 
   useEffect(() => {
@@ -352,10 +438,25 @@ export default function VideoCompressorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ffmpegState.isLoaded, videoFile, metadata, isProbing])
 
+  useEffect(() => {
+    if (!ffmpegState.isLoaded || !videoFile || !metadata || isProbing) return
+    if (durationSec <= 0) return
+    estimateNamedPresets(videoFile)
+    return () => {
+      estimateRequest.current += 1
+    }
+    // estimateNamedPresets is recreated each render; duration/metadata are the real triggers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ffmpegState.isLoaded, videoFile, metadata, isProbing, durationSec])
+
   const handleVideoUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
+    estimateRequest.current += 1
+    probeRequest.current += 1
+    setIsEstimating(false)
+    setPresetEstimates(null)
     setVideoFile(file)
     replacePreview(URL.createObjectURL(file))
     replaceOutput(null, null)
@@ -377,6 +478,10 @@ export default function VideoCompressorPage() {
   }
 
   const handleReset = () => {
+    estimateRequest.current += 1
+    probeRequest.current += 1
+    setIsEstimating(false)
+    setPresetEstimates(null)
     setVideoFile(null)
     replacePreview(null)
     replaceOutput(null, null)
@@ -419,6 +524,8 @@ export default function VideoCompressorPage() {
 
   const handleCompress = async () => {
     if (!videoFile || !ffmpegState.isLoaded) return
+    estimateRequest.current += 1
+    setIsEstimating(false)
     setIsConverting(true)
     setError(null)
     setEncodeLog('')
@@ -428,51 +535,53 @@ export default function VideoCompressorPage() {
     const outputName = `output.${format}`
     let lastLog = ''
 
-    try {
-      await writeFile(inputName, videoFile)
-      setLogListener((message) => {
-        lastLog = message
-        setEncodeLog(message)
-      })
+    await runExclusive(async () => {
+      try {
+        await writeFile(inputName, videoFile)
+        setLogListener((message) => {
+          lastLog = message
+          setEncodeLog(message)
+        })
 
-      const exitCode = await exec(buildCompressArgs({
-        inputName,
-        outputName,
-        format,
-        codec,
-        qualityMode,
-        crf,
-        videoBitrateKbps,
-        resolution,
-        width,
-        height,
-        sourceWidth: originalWidth,
-        sourceHeight: originalHeight,
-        fps: resolvedFps,
-        audioMode,
-        sourceAudioCodec: metadata?.audioCodec,
-        hasAudio,
-        encoderSpeed,
-      }))
+        const exitCode = await exec(buildCompressArgs({
+          inputName,
+          outputName,
+          format,
+          codec,
+          qualityMode,
+          crf,
+          videoBitrateKbps,
+          resolution,
+          width,
+          height,
+          sourceWidth: originalWidth,
+          sourceHeight: originalHeight,
+          fps: resolvedFps,
+          audioMode,
+          sourceAudioCodec: metadata?.audioCodec,
+          hasAudio,
+          encoderSpeed,
+        }))
 
-      if (typeof exitCode === 'number' && exitCode !== 0) {
-        throw new Error(lastLog || `Compression failed (${exitCode})`)
+        if (typeof exitCode === 'number' && exitCode !== 0) {
+          throw new Error(lastLog || `Compression failed (${exitCode})`)
+        }
+
+        const blob = await readFile(outputName, outputMimeType(format))
+        replaceOutput(URL.createObjectURL(blob), blob)
+      } catch (compressError) {
+        console.error('Compression failed:', compressError)
+        const message = compressError instanceof Error && compressError.message
+          ? compressError.message
+          : lastLog
+        setError(message || 'Compression failed. Try another format or a faster preset.')
+      } finally {
+        setLogListener(null)
+        await deleteFile(inputName)
+        await deleteFile(outputName)
+        setIsConverting(false)
       }
-
-      const blob = await readFile(outputName, outputMimeType(format))
-      replaceOutput(URL.createObjectURL(blob), blob)
-    } catch (compressError) {
-      console.error('Compression failed:', compressError)
-      const message = compressError instanceof Error && compressError.message
-        ? compressError.message
-        : lastLog
-      setError(message || 'Compression failed. Try another format or a faster preset.')
-    } finally {
-      setLogListener(null)
-      await deleteFile(inputName)
-      await deleteFile(outputName)
-      setIsConverting(false)
-    }
+    })
   }
 
   const handleDownload = () => {
@@ -559,7 +668,7 @@ export default function VideoCompressorPage() {
                     {COMPRESSION_PRESETS.map((option) => {
                       const selected = preset === option.value
                       const named = option.value !== 'custom' ? option.value as NamedCompressionPreset : null
-                      const estimated = named && presetEstimates ? presetEstimates[named] : 0
+                      const estimated = named ? presetEstimates?.[named] ?? 0 : 0
                       const reduction = videoFile && estimated > 0
                         ? formatReduction(videoFile.size, estimated)
                         : null
@@ -599,6 +708,9 @@ export default function VideoCompressorPage() {
                               )}
                             </p>
                           )}
+                          {named && estimated <= 0 && isEstimating && (
+                            <p className="text-xs text-muted-foreground mt-1.5">Estimating…</p>
+                          )}
                         </button>
                       )
                     })}
@@ -606,9 +718,15 @@ export default function VideoCompressorPage() {
                   <p className="text-xs text-muted-foreground">
                     {!videoFile
                       ? 'Upload a video to compare estimated size for each preset.'
-                      : !presetEstimates
+                      : isProbing
                         ? 'Reading video details to estimate size…'
-                        : 'Recommended is the highest quality that still saves about 30% or more. Estimates vary with content.'}
+                        : isEstimating && !presetEstimates
+                          ? 'Encoding a short sample to estimate size…'
+                          : presetEstimates
+                            ? 'Recommended is the highest quality that still saves about 30% or more. Sizes are scaled from a short sample encode.'
+                            : isEstimating
+                              ? 'Encoding a short sample to estimate size…'
+                              : 'Could not estimate size from a sample encode.'}
                   </p>
                 </div>
 
