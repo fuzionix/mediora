@@ -33,54 +33,63 @@ export function useFFmpeg() {
   const externalLogListener = useRef<LogListener | null>(null)
   
   const ffmpegRef = useRef<FFmpeg>(new FFmpeg())
+  const loadPromiseRef = useRef<Promise<boolean> | null>(null)
 
   const load = useCallback(async () => {
-    if (state.isLoaded) return
-    
-    setState(prev => ({ 
-      ...prev, 
-      isLoading: true, 
-      message: 'Loading FFmpeg core...' 
-    }))
-    
     const ffmpeg = ffmpegRef.current
+    if (ffmpeg.loaded) return true
+    if (loadPromiseRef.current) return loadPromiseRef.current
 
-    ffmpeg.on('log', ({ message }) => {
-      setState(prev => ({ ...prev, message }))
-      
-      if (externalLogListener.current) {
-        externalLogListener.current(message)
-      }
-    })
+    setState(prev => ({
+      ...prev,
+      isLoaded: false,
+      isLoading: true,
+      message: 'Loading FFmpeg core...',
+      progress: 0,
+    }))
 
-    ffmpeg.on('progress', ({ progress }) => {
-      setState(prev => ({ ...prev, progress: progress * 100 }))
-    })
-
-    try {
-      const coreURL = resolveAssetUrl('ffmpeg/ffmpeg-core.js')
-      const wasmURL = resolveAssetUrl('ffmpeg/ffmpeg-core.wasm')
-
-      await ffmpeg.load({
-        coreURL,
-        wasmURL,
+    const loading = (async () => {
+      ffmpeg.on('log', ({ message }) => {
+        setState(prev => ({ ...prev, message }))
+        externalLogListener.current?.(message)
       })
 
-      setState(prev => ({ 
-        ...prev,
-        isLoaded: true,
-        isLoading: false,
-        message: 'Ready'
-      }))
-    } catch (error) {
-      console.error('FFmpeg load error:', error)
-      setState(prev => ({ 
-        ...prev, 
-        isLoading: false, 
-        message: 'Failed to load FFmpeg core.' 
-      }))
+      ffmpeg.on('progress', ({ progress }) => {
+        setState(prev => ({ ...prev, progress: progress * 100 }))
+      })
+
+      try {
+        const coreURL = resolveAssetUrl('ffmpeg/ffmpeg-core.js')
+        const wasmURL = resolveAssetUrl('ffmpeg/ffmpeg-core.wasm')
+
+        await ffmpeg.load({ coreURL, wasmURL })
+        setState(prev => ({
+          ...prev,
+          isLoaded: true,
+          isLoading: false,
+          message: 'Ready',
+        }))
+        return true
+      } catch (error) {
+        console.error('FFmpeg load error:', error)
+        ffmpeg.terminate()
+        ffmpegRef.current = new FFmpeg()
+        setState(prev => ({
+          ...prev,
+          isLoaded: false,
+          isLoading: false,
+          message: 'Failed to load FFmpeg core. Reload the page to try again.',
+        }))
+        return false
+      }
+    })()
+    loadPromiseRef.current = loading
+    try {
+      return await loading
+    } finally {
+      loadPromiseRef.current = null
     }
-  }, [state.isLoaded])
+  }, [])
 
   const writeFile = async (fileName: string, file: File) => {
     const ffmpeg = ffmpegRef.current
@@ -97,7 +106,21 @@ export function useFFmpeg() {
 
   const exec = async (args: string[]) => {
     const ffmpeg = ffmpegRef.current
-    return await ffmpeg.exec(args)
+    try {
+      return await ffmpeg.exec(args)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (/runtimeerror|memory access out of bounds|abort\(/i.test(message)) {
+        externalLogListener.current = null
+        ffmpeg.terminate()
+        ffmpegRef.current = new FFmpeg()
+        const recovered = await load()
+        if (!recovered) {
+          throw new Error(`${message}. The conversion engine could not be restarted; reload the page.`)
+        }
+      }
+      throw new Error(message)
+    }
   }
 
   const deleteFile = async (fileName: string) => {

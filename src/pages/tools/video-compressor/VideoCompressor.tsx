@@ -441,9 +441,9 @@ export default function VideoCompressorPage() {
       setError(message || 'Compression failed. Try another format or a faster preset.')
     } finally {
       setLogListener(null)
-      setIsConverting(false)
       await deleteFile(inputName)
       await deleteFile(outputName)
+      setIsConverting(false)
     }
   }
 

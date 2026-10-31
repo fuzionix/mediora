@@ -57,7 +57,7 @@ export const outputMimeType = (format: OutputFormat) => (
 )
 
 export const codecsForFormat = (format: OutputFormat): VideoCodec[] => (
-  format === 'mp4' ? ['h264'] : ['vp9', 'vp8']
+  format === 'mp4' ? ['h264'] : ['vp8', 'vp9']
 )
 
 export const audioReserveKbps = (
