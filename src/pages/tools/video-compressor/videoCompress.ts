@@ -1,10 +1,13 @@
-import type {
-  AudioMode,
-  EncoderSpeed,
-  OutputFormat,
-  QualityMode,
-  ResolutionPreset,
-  VideoCodec,
+import {
+  PRESET_DEFAULTS,
+  type AudioMode,
+  type CompressionPreset,
+  type CompressionSettings,
+  type EncoderSpeed,
+  type OutputFormat,
+  type QualityMode,
+  type ResolutionPreset,
+  type VideoCodec,
 } from './constants'
 
 export interface CompressCommandOptions {
@@ -91,6 +94,134 @@ export const estimateOutputBytes = (
   if (!Number.isFinite(durationSec) || durationSec <= 0) return 0
   if (!Number.isFinite(videoKbps) || videoKbps <= 0) return 0
   return ((videoKbps + Math.max(0, audioKbps)) * 1000 * durationSec) / 8
+}
+
+export type NamedCompressionPreset = Exclude<CompressionPreset, 'custom'>
+
+export const NAMED_COMPRESSION_PRESETS: NamedCompressionPreset[] = ['smallest', 'balanced', 'high']
+
+/** Highest quality still counts as a meaningful save at this ratio. */
+export const PRESET_RECOMMENDED_MIN_SAVINGS = 0.3
+
+const SOURCE_EQUIVALENT_CRF: Record<VideoCodec, number> = {
+  h264: 18,
+  vp8: 10,
+  vp9: 23,
+}
+
+const CRF_BPP_REF: Record<VideoCodec, { crf: number; bpp: number }> = {
+  h264: { crf: 23, bpp: 0.08 },
+  vp8: { crf: 10, bpp: 0.09 },
+  vp9: { crf: 32, bpp: 0.07 },
+}
+
+const SPEED_SIZE_FACTOR: Record<EncoderSpeed, number> = {
+  fast: 1.06,
+  balanced: 1,
+  slow: 0.94,
+}
+
+export interface CrfSizeEstimateSource {
+  sourceBytes: number
+  durationSec: number
+  sourceWidth?: number | null
+  sourceHeight?: number | null
+  sourceFps?: number | null
+  sourceBitrateBps?: number | null
+  hasAudio: boolean
+}
+
+const crfScale = (fromCrf: number, toCrf: number) => Math.pow(2, (fromCrf - toCrf) / 6)
+
+export const outputFpsForSettings = (
+  fpsPreset: CompressionSettings['fpsPreset'],
+  sourceFps?: number | null,
+) => {
+  if (fpsPreset === 'original' || fpsPreset === 'custom') {
+    return sourceFps && sourceFps > 0 ? sourceFps : null
+  }
+  const target = Number(fpsPreset)
+  if (!Number.isFinite(target) || target <= 0) return sourceFps && sourceFps > 0 ? sourceFps : null
+  if (!sourceFps || sourceFps <= 0) return target
+  return Math.min(sourceFps, target)
+}
+
+const sourceVideoKbps = (source: CrfSizeEstimateSource, format: OutputFormat) => {
+  const totalFromFile = source.durationSec > 0
+    ? (source.sourceBytes * 8) / source.durationSec / 1000
+    : 0
+  const totalKbps = source.sourceBitrateBps && source.sourceBitrateBps > 0
+    ? source.sourceBitrateBps / 1000
+    : totalFromFile
+  const reservedAudio = source.hasAudio ? audioReserveKbps('preserve', format, true) : 0
+  return Math.max(64, totalKbps - reservedAudio)
+}
+
+/** Approximate CRF output size from source bitrate, resolution, fps, and quality. */
+export const estimateCrfOutputBytes = (
+  source: CrfSizeEstimateSource,
+  settings: CompressionSettings,
+) => {
+  if (!Number.isFinite(source.sourceBytes) || source.sourceBytes <= 0) return 0
+  if (!Number.isFinite(source.durationSec) || source.durationSec <= 0) return 0
+
+  const fitted = expectedResolution(
+    source.sourceWidth ?? null,
+    source.sourceHeight ?? null,
+    settings.resolution,
+    0,
+    0,
+  )
+  const outputWidth = fitted?.width ?? source.sourceWidth ?? 1280
+  const outputHeight = fitted?.height ?? source.sourceHeight ?? 720
+  const outputFps = outputFpsForSettings(settings.fpsPreset, source.sourceFps)
+  const sourceFps = source.sourceFps && source.sourceFps > 0 ? source.sourceFps : outputFps
+
+  const sourcePixels = (source.sourceWidth ?? outputWidth) * (source.sourceHeight ?? outputHeight)
+  const outputPixels = outputWidth * outputHeight
+  const fpsRatio = sourceFps && outputFps ? outputFps / sourceFps : 1
+  const pixelRatio = sourcePixels > 0 ? (outputPixels / sourcePixels) * fpsRatio : fpsRatio
+
+  const bppRef = CRF_BPP_REF[settings.codec]
+  const bppKbps = (outputWidth * outputHeight * (outputFps || 30) * bppRef.bpp * crfScale(bppRef.crf, settings.crf)) / 1000
+  const fromSource = sourceVideoKbps(source, settings.format)
+    * pixelRatio
+    * crfScale(SOURCE_EQUIVALENT_CRF[settings.codec], settings.crf)
+
+  const videoKbps = Math.min(
+    Math.max(fromSource, bppKbps * 0.4),
+    bppKbps * 1.8,
+  ) * SPEED_SIZE_FACTOR[settings.encoderSpeed]
+
+  const audioKbps = audioReserveKbps(settings.audioMode, settings.format, source.hasAudio)
+  const bytes = estimateOutputBytes(Math.max(64, videoKbps), audioKbps, source.durationSec) * 1.02
+  return Math.max(1024, Math.round(bytes))
+}
+
+export const estimateNamedPresetOutputs = (source: CrfSizeEstimateSource) => {
+  return NAMED_COMPRESSION_PRESETS.reduce((result, name) => {
+    result[name] = estimateCrfOutputBytes(source, PRESET_DEFAULTS[name])
+    return result
+  }, {} as Record<NamedCompressionPreset, number>)
+}
+
+/** Prefer the highest-quality named preset that still saves a meaningful amount. */
+export const recommendedNamedPreset = (
+  estimates: Record<NamedCompressionPreset, number>,
+  sourceBytes: number,
+): NamedCompressionPreset => {
+  if (!sourceBytes || sourceBytes <= 0) return 'balanced'
+
+  const qualityOrder: NamedCompressionPreset[] = ['high', 'balanced', 'smallest']
+  const qualifying = qualityOrder.filter((name) => {
+    const estimated = estimates[name]
+    return estimated > 0 && 1 - estimated / sourceBytes >= PRESET_RECOMMENDED_MIN_SAVINGS
+  })
+  if (qualifying.length > 0) return qualifying[0]
+
+  return qualityOrder.reduce((best, name) => (
+    estimates[name] > 0 && estimates[name] < estimates[best] ? name : best
+  ), 'balanced')
 }
 
 export const expectedResolution = (

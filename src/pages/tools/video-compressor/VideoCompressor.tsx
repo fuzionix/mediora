@@ -13,6 +13,7 @@ import {
   RulerDimensionLine,
   Shrink,
 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
@@ -33,6 +34,7 @@ import { MediaInfo } from '@/components/tool/MediaInfo'
 import { useFFmpeg } from '@/hooks/use-ffmpeg'
 import { parseMediaMetadata, type MediaMetadata } from '@/lib/ffmpegUtils'
 import { SUPPORTED_VIDEO_FORMATS } from '@/constants/media'
+import { cn } from '@/lib/utils'
 import {
   AUDIO_MODES,
   COMPRESSION_PRESETS,
@@ -55,10 +57,13 @@ import {
   audioReserveKbps,
   buildCompressArgs,
   codecsForFormat,
+  estimateNamedPresetOutputs,
   estimateOutputBytes,
   estimateVideoBitrateKbps,
   expectedResolution,
   outputMimeType,
+  recommendedNamedPreset,
+  type NamedCompressionPreset,
 } from './videoCompress'
 
 const BALANCED = PRESET_DEFAULTS.balanced
@@ -83,6 +88,14 @@ const formatBytes = (bytes?: number | null) => {
   if (mb >= 1) return `${mb.toFixed(2)} MB`
   if (bytes >= 1024) return `${(bytes / 1024).toFixed(0)} KB`
   return `${Math.max(0, Math.round(bytes))} B`
+}
+
+const formatReduction = (sourceBytes: number, estimatedBytes: number) => {
+  if (sourceBytes <= 0 || estimatedBytes <= 0) return null
+  const fraction = 1 - estimatedBytes / sourceBytes
+  if (Math.abs(fraction) < 0.03) return 'similar size'
+  if (fraction > 0) return `${(fraction * 100).toFixed(0)}% smaller`
+  return `${(Math.abs(fraction) * 100).toFixed(0)}% larger`
 }
 
 const fileExtension = (name: string) => {
@@ -220,6 +233,21 @@ export default function VideoCompressorPage() {
   const estimatedBytes = qualityMode === 'crf'
     ? 0
     : estimateOutputBytes(videoBitrateKbps, audioKbps, durationSec)
+  const presetEstimates = useMemo(() => {
+    if (!videoFile || durationSec <= 0) return null
+    return estimateNamedPresetOutputs({
+      sourceBytes: videoFile.size,
+      durationSec,
+      sourceWidth: originalWidth,
+      sourceHeight: originalHeight,
+      sourceFps: sourceFps,
+      sourceBitrateBps: metadata?.bitrate ?? null,
+      hasAudio: metadata ? hasAudio : true,
+    })
+  }, [videoFile, durationSec, originalWidth, originalHeight, sourceFps, metadata, hasAudio])
+  const recommendedPreset = presetEstimates && videoFile
+    ? recommendedNamedPreset(presetEstimates, videoFile.size)
+    : null
   const fittedResolution = expectedResolution(
     originalWidth,
     originalHeight,
@@ -525,19 +553,63 @@ export default function VideoCompressorPage() {
           <div>
             <Card className="p-4">
               <div className="space-y-4">
-                <div className="space-y-1">
-                  <SettingSelect
-                    label="Compression preset"
-                    value={preset}
-                    options={COMPRESSION_PRESETS}
-                    onChange={applyPreset}
-                    disabled={isConverting}
-                  />
-                  {preset !== 'custom' && (
-                    <p className="text-xs text-muted-foreground">
-                      {COMPRESSION_PRESETS.find((item) => item.value === preset)?.description}
-                    </p>
-                  )}
+                <div className="space-y-2">
+                  <Label>Compression preset</Label>
+                  <div className="grid gap-2">
+                    {COMPRESSION_PRESETS.map((option) => {
+                      const selected = preset === option.value
+                      const named = option.value !== 'custom' ? option.value as NamedCompressionPreset : null
+                      const estimated = named && presetEstimates ? presetEstimates[named] : 0
+                      const reduction = videoFile && estimated > 0
+                        ? formatReduction(videoFile.size, estimated)
+                        : null
+                      const isRecommended = Boolean(named && recommendedPreset === named)
+
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          aria-pressed={selected}
+                          disabled={isConverting}
+                          onClick={() => applyPreset(option.value)}
+                          className={cn(
+                            'w-full rounded-lg border px-3 py-2.5 text-left transition-colors',
+                            'focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                            selected ? 'border-primary bg-primary/5' : 'border-input hover:bg-accent/50',
+                            isConverting && 'pointer-events-none opacity-50',
+                          )}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-sm font-medium">{option.label}</span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {isRecommended && (
+                                <Badge variant="secondary" className="font-medium">
+                                  Recommended
+                                </Badge>
+                              )}
+                              {selected && <Check className="h-4 w-4" />}
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">{option.description}</p>
+                          {named && estimated > 0 && videoFile && (
+                            <p className="text-xs mt-1.5">
+                              <span className="font-medium">~{formatBytes(estimated)}</span>
+                              {reduction && (
+                                <span className="text-muted-foreground"> · {reduction}</span>
+                              )}
+                            </p>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {!videoFile
+                      ? 'Upload a video to compare estimated size for each preset.'
+                      : !presetEstimates
+                        ? 'Reading video details to estimate size…'
+                        : 'Recommended is the highest quality that still saves about 30% or more. Estimates vary with content.'}
+                  </p>
                 </div>
 
                 {preset === 'custom' && (
