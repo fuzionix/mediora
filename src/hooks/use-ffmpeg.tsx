@@ -89,10 +89,10 @@ export function useFFmpeg() {
   }
 
   /* eslint-disable  @typescript-eslint/no-explicit-any */
-  const readFile = async (fileName: string): Promise<Blob> => {
+  const readFile = async (fileName: string, mimeType = 'image/gif'): Promise<Blob> => {
     const ffmpeg = ffmpegRef.current
     const data = await ffmpeg.readFile(fileName)
-    return new Blob([data as any], { type: 'image/gif' })
+    return new Blob([data as any], { type: mimeType })
   }
 
   const exec = async (args: string[]) => {

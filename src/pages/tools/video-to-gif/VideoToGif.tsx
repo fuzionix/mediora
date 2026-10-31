@@ -43,8 +43,9 @@ import { MediaInfo } from '@/components/tool/MediaInfo'
 import { useFFmpeg } from '@/hooks/use-ffmpeg'
 import { downloadAsGif, downloadAsZip } from '@/lib/utils'
 import { parseMediaMetadata, type MediaMetadata } from '@/lib/ffmpegUtils'
-import type { AspectRatio, FitMode } from '@/constants/media'
-import { ASPECT_RATIOS, FIT_MODES, DITHERING_MODES } from '@/constants/media'
+import { SUPPORTED_VIDEO_FORMATS } from '@/constants/media'
+import type { AspectRatio, FitMode } from './constants'
+import { ASPECT_RATIOS, FIT_MODES, DITHERING_MODES } from './constants'
 
 // Helper to parse HH:MM:SS.mm into seconds
 const parseTimeStringToSeconds = (timeStr: string) => {
@@ -418,7 +419,7 @@ export default function VideoToGifPage() {
               onUpload={handleVideoUpload}
               onClear={handleReset}
               accept="video/*"
-              supportedFormats={['MP4', 'MOV', 'AVI', 'MKV', 'WEBM']}
+              supportedFormats={SUPPORTED_VIDEO_FORMATS}
             >
               {videoPreview && (
                 <div>
